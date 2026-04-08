@@ -1,6 +1,4 @@
-import { useEffect } from 'react';
-import { Tabs } from 'expo-router';
-import { Redirect } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Spinner, YStack } from 'tamagui';
 import { useAuth } from '../../context/AuthContext';
@@ -8,26 +6,25 @@ import { useAuth } from '../../context/AuthContext';
 export default function TabLayout() {
   const { session, loading } = useAuth();
 
-  // 認証ロード中はスピナー表示
   if (loading) {
     return (
       <YStack flex={1} alignItems="center" justifyContent="center">
-        <Spinner />
+        <Spinner size="large" />
       </YStack>
     );
   }
 
-  // 未認証ならログイン画面へリダイレクト
   if (!session) {
     return <Redirect href="/auth/login" />;
   }
 
   return (
-    <Tabs>
+    <Tabs screenOptions={{ headerShown: false }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'タイムライン',
+          headerShown: true,
           tabBarIcon: ({ color }) => <Feather name="home" size={24} color={color} />,
         }}
       />
@@ -35,6 +32,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'プロフィール',
+          headerShown: true,
           tabBarIcon: ({ color }) => <Feather name="user" size={24} color={color} />,
         }}
       />
