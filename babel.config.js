@@ -8,8 +8,9 @@ module.exports = function (api) {
         {
           components: ['tamagui'],
           config: './src/tamagui.config.ts',
-          logTimings: true,
-          disableExtraction: process.env.NODE_ENV === 'development',
+          // ビルド時の静的解析を無効化（ESM/CJS 競合回避）
+          // 本番ビルド時に有効化するとパフォーマンス最適化が効く
+          disableExtraction: true,
         },
       ],
       'react-native-reanimated/plugin',
