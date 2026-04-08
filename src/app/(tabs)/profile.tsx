@@ -45,12 +45,12 @@ export default function ProfileScreen() {
     if (!user) return;
     setError('');
 
-    if (username.length < 1 || username.length > 30) {
-      setError('ユーザー名は 1〜30 文字で入力してください');
+    if (username.length < 1 || username.length > 20) {
+      setError('ユーザー名は 1〜20 文字で入力してください');
       return;
     }
-    if (favoriteExpression !== '' && favoriteExpression.length > 20) {
-      setError('推しの表現は 20 文字以内で入力してください');
+    if (favoriteExpression !== '' && favoriteExpression.length > 30) {
+      setError('推しの表現は 30 文字以内で入力してください');
       return;
     }
 
@@ -154,23 +154,23 @@ export default function ProfileScreen() {
 
       {/* ユーザー名 */}
       <YStack gap="$1">
-        <Text fontSize="$3" color="$gray10">ユーザー名（1〜30文字）</Text>
+        <Text fontSize="$3" color="$gray10">ユーザー名（1〜20文字）</Text>
         <Input
           value={username}
           onChangeText={setUsername}
           placeholder="ユーザー名"
-          maxLength={30}
+          maxLength={20}
         />
       </YStack>
 
       {/* 推しの表現 */}
       <YStack gap="$1">
-        <Text fontSize="$3" color="$gray10">推しの表現（20文字以内）</Text>
+        <Text fontSize="$3" color="$gray10">推しの表現（30文字以内）</Text>
         <Input
           value={favoriteExpression}
           onChangeText={setFavoriteExpression}
           placeholder="例: 温故知新、袖振り合うも多生の縁、など"
-          maxLength={20}
+          maxLength={30}
         />
       </YStack>
 
