@@ -1,0 +1,23 @@
+# Kiro / Claude (do not push to GitHub)
+.kiro/
+.claude/
+CLAUDE.md
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Env
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
