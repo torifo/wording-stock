@@ -14,7 +14,7 @@ CREATE TABLE profiles (
   id                  UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username            TEXT        NOT NULL UNIQUE
                                   CHECK (char_length(username) BETWEEN 1 AND 30),
-  favorite_yojijukugo TEXT        CHECK (char_length(favorite_yojijukugo) = 4),
+  favorite_expression TEXT        CHECK (char_length(favorite_expression) BETWEEN 1 AND 20),
   avatar_url          TEXT,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()

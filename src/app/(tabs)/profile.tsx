@@ -10,7 +10,7 @@ export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [username, setUsername] = useState('');
-  const [yojijukugo, setYojijukugo] = useState('');
+  const [favoriteExpression, setFavoriteExpression] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -37,7 +37,7 @@ export default function ProfileScreen() {
     if (data) {
       setProfile(data as Profile);
       setUsername(data.username ?? '');
-      setYojijukugo(data.favorite_yojijukugo ?? '');
+      setFavoriteExpression(data.favorite_expression ?? '');
     }
   }
 
@@ -49,8 +49,8 @@ export default function ProfileScreen() {
       setError('ユーザー名は 1〜30 文字で入力してください');
       return;
     }
-    if (yojijukugo !== '' && yojijukugo.length !== 4) {
-      setError('推しの四字熟語は 4 文字で入力してください');
+    if (favoriteExpression !== '' && favoriteExpression.length > 20) {
+      setError('推しの表現は 20 文字以内で入力してください');
       return;
     }
 
@@ -59,7 +59,7 @@ export default function ProfileScreen() {
       .from('profiles')
       .update({
         username,
-        favorite_yojijukugo: yojijukugo || null,
+        favorite_expression: favoriteExpression || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', user.id);
@@ -163,14 +163,14 @@ export default function ProfileScreen() {
         />
       </YStack>
 
-      {/* 推しの四字熟語 */}
+      {/* 推しの表現 */}
       <YStack gap="$1">
-        <Text fontSize="$3" color="$gray10">推しの四字熟語（4文字）</Text>
+        <Text fontSize="$3" color="$gray10">推しの表現（20文字以内）</Text>
         <Input
-          value={yojijukugo}
-          onChangeText={setYojijukugo}
-          placeholder="例: 温故知新"
-          maxLength={4}
+          value={favoriteExpression}
+          onChangeText={setFavoriteExpression}
+          placeholder="例: 温故知新、袖振り合うも多生の縁、など"
+          maxLength={20}
         />
       </YStack>
 

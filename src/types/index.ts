@@ -12,7 +12,7 @@ export type Category =
 export interface Profile {
   id: string;
   username: string;
-  favorite_yojijukugo: string | null;
+  favorite_expression: string | null;
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
