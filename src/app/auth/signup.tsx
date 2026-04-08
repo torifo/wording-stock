@@ -1,13 +1,20 @@
 import { useState } from 'react';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Button, Input, Text, YStack, XStack, Spinner } from 'tamagui';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 export default function SignupScreen() {
+  const { session } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 認証済みなら tabs へ
+  if (session) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   async function handleSignup() {
     if (password.length < 8) {
@@ -64,10 +71,7 @@ export default function SignupScreen() {
 
       <XStack justifyContent="center" gap="$2">
         <Text>すでにアカウントをお持ちですか？</Text>
-        <Text
-          color="$blue10"
-          onPress={() => router.push('/auth/login')}
-        >
+        <Text color="$blue10" onPress={() => router.push('/auth/login')}>
           ログイン
         </Text>
       </XStack>
