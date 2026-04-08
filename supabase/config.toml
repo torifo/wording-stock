@@ -1,0 +1,17 @@
+# Supabase ローカル開発設定
+# 本番プロジェクト: Wordock-Core
+
+[api]
+port = 54321
+
+[db]
+port = 54322
+
+[studio]
+port = 54323
+
+[inbucket]
+port = 54324
+
+[storage]
+file_size_limit = "50MiB"
