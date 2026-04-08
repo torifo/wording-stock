@@ -4,11 +4,23 @@ const BATCH_SIZE = 50;
 const INTERVAL_MS = 200;
 const MAX_RETRIES = 3;
 
+// toxic スコアの閾値
+// 0.0〜0.4 : safe
+// 0.4〜0.7 : grey（ユーザー投票に委ねる）
+// 0.7〜1.0 : banned
+const GREY_THRESHOLD = 0.4;
+const BANNED_THRESHOLD = 0.7;
+
 type CensorStatus = 'safe' | 'grey' | 'banned';
 
 interface Expression {
   id: string;
   content: string;
+}
+
+interface HfClassificationResult {
+  label: string;
+  score: number;
 }
 
 Deno.serve(async (_req: Request): Promise<Response> => {
@@ -17,7 +29,6 @@ Deno.serve(async (_req: Request): Promise<Response> => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // is_ai_checked = false の Expression を最大 50 件取得（created_at 昇順）
   const { data: expressions, error: fetchError } = await supabase
     .from('expressions')
     .select('id, content')
@@ -39,17 +50,15 @@ Deno.serve(async (_req: Request): Promise<Response> => {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        censorStatus = await callAI(expr.content);
+        censorStatus = await classify(expr.content);
         success = true;
         break;
       } catch (err: unknown) {
         const status = (err as { status?: number }).status;
         if (status === 429) {
-          // レート制限: 即時中断、is_ai_checked は false のまま保持
           console.warn('Rate limit hit, stopping batch');
           return new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 });
         }
-        // その他エラー: 指数バックオフでリトライ
         const backoff = INTERVAL_MS * Math.pow(2, attempt);
         console.warn(`Retry ${attempt + 1} for ${expr.id} after ${backoff}ms`);
         await sleep(backoff);
@@ -66,11 +75,9 @@ Deno.serve(async (_req: Request): Promise<Response> => {
         console.error(`Failed to update ${expr.id}:`, updateError);
       }
     } else {
-      // 3 回失敗: is_ai_checked は false のまま保持
       console.error(`Failed after ${MAX_RETRIES} retries: ${expr.id}`);
     }
 
-    // 呼び出し間隔 200ms
     await sleep(INTERVAL_MS);
   }
 
@@ -79,47 +86,33 @@ Deno.serve(async (_req: Request): Promise<Response> => {
   });
 });
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /**
- * AI API を呼び出してコンテンツの検閲ステータスを判定する
+ * Hugging Face Inference API（unitary/toxic-bert）で有害度を判定する
  *
- * 実際の AI プロバイダー（Anthropic / OpenAI 等）に合わせて実装する。
- * 環境変数 AI_API_KEY を使用すること。
+ * toxic スコアで 3 段階に分類：
+ *   0.0〜0.4 → safe
+ *   0.4〜0.7 → grey
+ *   0.7〜1.0 → banned
+ *
+ * 環境変数 HF_API_TOKEN に Hugging Face の無料アクセストークンを設定すること
  */
-async function callAI(content: string): Promise<CensorStatus> {
-  const apiKey = Deno.env.get('AI_API_KEY');
-  if (!apiKey) {
-    throw new Error('AI_API_KEY is not set');
+async function classify(content: string): Promise<CensorStatus> {
+  const token = Deno.env.get('HF_API_TOKEN');
+  if (!token) {
+    throw new Error('HF_API_TOKEN is not set');
   }
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
+  const response = await fetch(
+    'https://api-inference.huggingface.co/models/unitary/toxic-bert',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ inputs: content }),
     },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 10,
-      messages: [
-        {
-          role: 'user',
-          content: `以下の日本語テキストを審査してください。
-結果を必ず次の3つのうち1単語だけで返してください: safe / grey / banned
-
-- safe: 問題なし
-- grey: やや不適切または曖昧（ユーザー判断に委ねる）
-- banned: 明らかに有害・差別的・違法
-
-テキスト: 「${content}」`,
-        },
-      ],
-    }),
-  });
+  );
 
   if (response.status === 429) {
     const err = new Error('Rate limited') as Error & { status: number };
@@ -128,13 +121,19 @@ async function callAI(content: string): Promise<CensorStatus> {
   }
 
   if (!response.ok) {
-    throw new Error(`AI API error: ${response.status}`);
+    throw new Error(`HF API error: ${response.status}`);
   }
 
-  const json = await response.json();
-  const result = (json.content?.[0]?.text ?? 'safe').trim().toLowerCase();
+  // レスポンス例: [[{ label: "toxic", score: 0.95 }, { label: "non_toxic", score: 0.05 }]]
+  const json = await response.json() as HfClassificationResult[][];
+  const results = json[0] ?? [];
+  const toxicScore = results.find((r) => r.label === 'toxic')?.score ?? 0;
 
-  if (result === 'banned') return 'banned';
-  if (result === 'grey') return 'grey';
+  if (toxicScore >= BANNED_THRESHOLD) return 'banned';
+  if (toxicScore >= GREY_THRESHOLD) return 'grey';
   return 'safe';
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
