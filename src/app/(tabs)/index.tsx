@@ -1,7 +1,7 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { FlatList, ActivityIndicator, RefreshControl } from 'react-native';
-import { router } from 'expo-router';
-import { Button, Text, YStack, XStack, Input, ScrollView } from 'tamagui';
+import { router, Redirect } from 'expo-router';
+import { Button, Text, YStack, XStack, Input, ScrollView, Spinner } from 'tamagui';
 import { useState } from 'react';
 import { ExpressionCard } from '../../components/ExpressionCard';
 import { useTimeline } from '../../hooks/useTimeline';
@@ -11,7 +11,7 @@ import type { Category } from '../../types';
 const CATEGORIES: Array<Category | null> = [null, '四字熟語', '慣用句', 'ことわざ', '詩・俳句', 'その他'];
 
 export default function TimelineScreen() {
-  const { user } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [keyword, setKeyword] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -22,11 +22,23 @@ export default function TimelineScreen() {
   });
 
   useEffect(() => {
-    fetch();
-  }, [fetch]);
+    if (session) fetch();
+  }, [fetch, session]);
 
   function handleSearch() {
     setKeyword(searchInput);
+  }
+
+  if (authLoading) {
+    return (
+      <YStack flex={1} alignItems="center" justifyContent="center">
+        <Spinner size="large" />
+      </YStack>
+    );
+  }
+
+  if (!session) {
+    return <Redirect href="/auth/login" />;
   }
 
   return (

@@ -45,7 +45,8 @@ export default function SignupScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <YStack flex={1} justifyContent="center" paddingHorizontal="$5" gap="$5">
+      <YStack flex={1} justifyContent="center" alignItems="center" paddingHorizontal="$4" gap="$5">
+      <YStack width="100%" maxWidth={440} gap="$5">
         {/* アプリロゴ・タイトル */}
         <YStack alignItems="center" gap="$2">
           <Text fontSize={32} fontWeight="800" letterSpacing={-0.5} color="$color12">
@@ -158,6 +159,7 @@ export default function SignupScreen() {
             ログイン
           </Text>
         </XStack>
+      </YStack>
       </YStack>
     </KeyboardAvoidingView>
   );

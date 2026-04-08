@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
+import { Redirect } from 'expo-router';
 import { Button, Input, Text, YStack, XStack, Avatar, Spinner } from 'tamagui';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
@@ -117,11 +118,7 @@ export default function ProfileScreen() {
   }
 
   if (!user) {
-    return (
-      <YStack flex={1} alignItems="center" justifyContent="center" padding="$4">
-        <Text marginBottom="$3">ログインしてください</Text>
-      </YStack>
-    );
+    return <Redirect href="/auth/login" />;
   }
 
   if (loading) {

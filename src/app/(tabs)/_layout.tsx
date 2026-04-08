@@ -1,30 +1,15 @@
-import { Tabs, Redirect } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { Spinner, YStack } from 'tamagui';
-import { useAuth } from '../../context/AuthContext';
 
+// auth guard は各スクリーン（index / profile）で実施
+// レイアウトは常に <Tabs> を返す（Expo Router の要件）
 export default function TabLayout() {
-  const { session, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <YStack flex={1} alignItems="center" justifyContent="center">
-        <Spinner size="large" />
-      </YStack>
-    );
-  }
-
-  if (!session) {
-    return <Redirect href="/auth/login" />;
-  }
-
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs>
       <Tabs.Screen
         name="index"
         options={{
           title: 'タイムライン',
-          headerShown: true,
           tabBarIcon: ({ color }) => <Feather name="home" size={24} color={color} />,
         }}
       />
@@ -32,7 +17,6 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'プロフィール',
-          headerShown: true,
           tabBarIcon: ({ color }) => <Feather name="user" size={24} color={color} />,
         }}
       />
