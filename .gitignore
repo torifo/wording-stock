@@ -25,6 +25,9 @@ dist/
 test-accounts.local.md
 scripts/seed-test-users.js
 
+# 取得した生データ・マージ済みデータ（大容量のためgit管理外）
+scripts/data/
+
 # Supabase CLI cache
 supabase/.temp/
 

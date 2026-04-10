@@ -230,6 +230,64 @@ supabase db push
 
 ---
 
+## 13. テストユーザー作成 — `.local` ドメインが Supabase に弾かれる
+
+**エラー:**
+```
+[ERROR] test01@wording-stock.local: Database error saving new user
+```
+
+**原因:** Supabase Auth が `.local` TLD のメールアドレスを不正ドメインとして拒否する。
+
+**解決策:** テスト用メールを `@example.com` に変更する。
+
+```js
+// NG
+{ email: 'test01@wording-stock.local' }
+// OK
+{ email: 'test01@example.com' }
+```
+
+---
+
+## 14. handle_new_user トリガー — username NOT NULL エラー
+
+**エラー:**
+```
+Database error saving new user
+```
+
+**原因:** `profiles.username` が `NOT NULL` 制約を持つが、トリガーが `id` だけを INSERT しようとしていた。
+
+**解決策:** トリガーでデフォルトユーザー名（UUID 先頭 8 文字）を生成して一緒に INSERT する。
+
+```sql
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO profiles (id, username)
+  VALUES (NEW.id, 'user_' || substr(NEW.id::text, 1, 8));
+  RETURN NEW;
+END;
+$$;
+```
+
+---
+
+## 15. handle_new_user トリガー — SET search_path が必要
+
+**エラー:** ユーザー作成時に `Database error saving new user`（関数の内容は正しいのに失敗）
+
+**原因:** Supabase の `SECURITY DEFINER` 関数は `search_path` を明示しないと `public` スキーマが見つからない場合がある。
+
+**解決策:** 関数定義に `SET search_path = public` を追加する（上記 #14 のコード参照）。
+
+> `CREATE OR REPLACE FUNCTION` で更新しても `SET search_path` がないと失敗する。SQL Editor から直接実行する場合も同様。
+
+---
+
 ## 環境情報（解決後の最終構成）
 
 | 項目 | バージョン |
