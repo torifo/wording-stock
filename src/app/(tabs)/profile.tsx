@@ -178,14 +178,23 @@ export default function ProfileScreen() {
       )}
 
       <Button
+        backgroundColor="$blue9"
+        color="white"
+        pressStyle={{ backgroundColor: '$blue10' }}
         onPress={handleSave}
         disabled={saving}
-        icon={saving ? <Spinner /> : undefined}
+        icon={saving ? <Spinner color="white" /> : undefined}
       >
         保存する
       </Button>
 
-      <Button variant="outlined" onPress={signOut} marginTop="$2">
+      <Button
+        variant="outlined"
+        borderColor="$blue9"
+        color="$blue9"
+        onPress={signOut}
+        marginTop="$2"
+      >
         ログアウト
       </Button>
     </YStack>

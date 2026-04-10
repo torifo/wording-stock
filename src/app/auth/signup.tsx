@@ -119,10 +119,13 @@ export default function SignupScreen() {
             size="$4"
             borderRadius="$4"
             fontWeight="700"
+            backgroundColor="$blue9"
+            color="white"
+            pressStyle={{ backgroundColor: '$blue10' }}
             onPress={handleSignup}
             disabled={loading || email === '' || password === ''}
             opacity={loading || email === '' || password === '' ? 0.5 : 1}
-            icon={loading ? <Spinner color="$color1" /> : undefined}
+            icon={loading ? <Spinner color="white" /> : undefined}
           >
             {loading ? '' : '登録する'}
           </Button>

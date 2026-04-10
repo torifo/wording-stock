@@ -65,6 +65,9 @@ export default function TimelineScreen() {
               key={cat ?? 'all'}
               size="$2"
               variant={selectedCategory === cat ? undefined : 'outlined'}
+              backgroundColor={selectedCategory === cat ? '$blue9' : undefined}
+              color={selectedCategory === cat ? 'white' : '$blue9'}
+              borderColor="$blue9"
               onPress={() => setSelectedCategory(cat)}
             >
               {cat ?? 'すべて'}
@@ -76,7 +79,13 @@ export default function TimelineScreen() {
       {/* 投稿ボタン */}
       {user && (
         <XStack justifyContent="flex-end" paddingHorizontal="$3" paddingVertical="$1">
-          <Button size="$3" onPress={() => router.push('/post')}>
+          <Button
+            size="$3"
+            backgroundColor="$blue9"
+            color="white"
+            pressStyle={{ backgroundColor: '$blue10' }}
+            onPress={() => router.push('/post')}
+          >
             ＋ 投稿する
           </Button>
         </XStack>
