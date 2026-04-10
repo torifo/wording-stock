@@ -1,12 +1,7 @@
-import { useState } from 'react';
-import { Alert } from 'react-native';
+import { useState, useRef } from 'react';
+import { Alert, Animated } from 'react-native';
 import { Stack, Text, Paragraph } from 'tamagui';
 import { BlurView } from 'expo-blur';
-import Animated, {
-  useSharedValue,
-  withTiming,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
 
 interface Props {
@@ -17,11 +12,7 @@ interface Props {
 export function GreyLayer({ content, onReveal }: Props) {
   const { user } = useAuth();
   const [revealed, setRevealed] = useState(false);
-  const opacity = useSharedValue(0.3);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+  const opacity = useRef(new Animated.Value(0.3)).current;
 
   function handleTap() {
     if (!user) {
@@ -33,7 +24,11 @@ export function GreyLayer({ content, onReveal }: Props) {
       return;
     }
 
-    opacity.value = withTiming(1.0, { duration: 300 });
+    Animated.timing(opacity, {
+      toValue: 1.0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
     setRevealed(true);
     onReveal?.();
   }
@@ -49,7 +44,7 @@ export function GreyLayer({ content, onReveal }: Props) {
       accessibilityRole="button"
       accessibilityLabel="タップして内容を確認する"
     >
-      <Animated.View style={animatedStyle}>
+      <Animated.View style={{ opacity }}>
         <BlurView intensity={20} tint="light">
           <Paragraph opacity={0.3} padding="$2">
             {content}
