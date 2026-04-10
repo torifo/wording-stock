@@ -184,6 +184,52 @@ New-NetFirewallRule -DisplayName "Expo Metro 8081" -Direction Inbound -Protocol 
 
 ---
 
+## 11. Supabase CLI — npm install -g supabase が失敗
+
+**エラー:**
+```
+npm error Installing Supabase CLI as a global module is not supported.
+```
+
+**原因:** `supabase` npm パッケージは `npm install -g` に対応していない。
+
+**解決策:** Windows では `winget` または `scoop` でインストールする。
+
+```powershell
+# winget（Windows 11 標準）
+winget install Supabase.CLI
+
+# または scoop
+scoop install supabase
+```
+
+インストール後は PowerShell を再起動してパスを反映させること。
+
+---
+
+## 12. supabase db push — テーブルが既に存在するエラー
+
+**エラー:**
+```
+ERROR: type "censor_status" already exists (SQLSTATE 42710)
+ERROR: relation "profiles" already exists (SQLSTATE 42P07)
+```
+
+**原因:** Supabase ダッシュボードの SQL Editor でマイグレーションを手動実行済みだったが、Supabase の移行管理テーブルに「適用済み」の記録がなかった。
+
+**解決策:** `supabase migration repair` で適用済みとしてマークする。
+
+```powershell
+supabase migration repair --status applied 20260409000001
+supabase migration repair --status applied 20260409000002
+supabase db push
+# → Remote database is up to date.
+```
+
+また、マイグレーション SQL の ENUM 作成を冪等（何度実行しても安全）にするため `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;` ブロックで囲む修正も実施済み。
+
+---
+
 ## 環境情報（解決後の最終構成）
 
 | 項目 | バージョン |
