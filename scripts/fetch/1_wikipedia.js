@@ -30,9 +30,22 @@ const CATEGORY_TARGETS = [
   { category: 'Category:名言',     appCategory: '名言・格言', maxPages: 200 },
 ];
 
-// --- 方式 B: 一覧ページ（四字熟語・格言）---
-const LIST_PAGE_TARGETS = [
-  { page: '四字熟語の一覧', appCategory: '四字熟語' },
+// --- 方式 B: 著名な四字熟語を直接フェッチ ---
+// Wikipedia で Category:四字熟語 は空のため、よく知られた四字熟語の記事タイトルを直接指定
+const YOJIJUKUGO_TITLES = [
+  '一石二鳥','温故知新','以心伝心','七転八起','一期一会','花鳥風月','自業自得',
+  '十人十色','切磋琢磨','精神一到','付和雷同','首尾一貫','臥薪嘗胆','起死回生',
+  '四面楚歌','一長一短','一刀両断','天変地異','前途多難','紆余曲折','山紫水明',
+  '一笑千金','大器晩成','竜頭蛇尾','呉越同舟','一喜一憂','疑心暗鬼','危機一髪',
+  '自由自在','清廉潔白','我田引水','異口同音','弱肉強食','傍若無人','馬耳東風',
+  '有言実行','一網打尽','無我夢中','一心不乱','空前絶後','前代未聞','半信半疑',
+  '喜怒哀楽','栄枯盛衰','五里霧中','暗中模索','試行錯誤','因果応報','輪廻転生',
+  '起承転結','滅私奉公','一致団結','公平無私','百折不撓','千載一遇','鶏口牛後',
+  '同床異夢','言語道断','本末転倒','優柔不断','虚心坦懐','意気消沈','意気揚揚',
+  '大山鳴動','画竜点睛','電光石火','風林火山','百花繚乱','絶体絶命','岡目八目',
+  '針小棒大','牽強付会','枝葉末節','二律背反','率先垂範','是々非々','喜色満面',
+  '一日千秋','七転八倒','四苦八苦','以毒制毒','万事休す','独立独歩','明鏡止水',
+  '春夏秋冬','東西南北','上下左右','前後不覚','七難八苦','紅一点','大言壮語',
 ];
 
 // -------------------------------------------------------
@@ -254,14 +267,22 @@ async function main() {
     }
   }
 
-  // 方式 B
-  for (const target of LIST_PAGE_TARGETS) {
-    try {
-      const entries = await runListPageTarget(target);
-      allEntries.push(...entries);
-    } catch (err) {
-      console.error(`  エラー: ${err.message}`);
+  // 方式 B: 四字熟語タイトル直接フェッチ
+  console.log(`\n[四字熟語] ${YOJIJUKUGO_TITLES.length}件を直接フェッチ中...`);
+  {
+    const entries = [];
+    for (let i = 0; i < YOJIJUKUGO_TITLES.length; i += BATCH_SIZE) {
+      const batch = YOJIJUKUGO_TITLES.slice(i, i + BATCH_SIZE);
+      const pages  = await fetchExtracts(batch);
+      for (const { title, extract } of pages) {
+        const entry = parseEntry(title, extract, '四字熟語');
+        if (entry) entries.push(entry);
+      }
+      process.stdout.write(`\r  進捗: ${Math.min(i + BATCH_SIZE, YOJIJUKUGO_TITLES.length)}/${YOJIJUKUGO_TITLES.length} （有効: ${entries.length}件）`);
+      await sleep(RATE_MS);
     }
+    console.log('');
+    allEntries.push(...entries);
   }
 
   const output = {

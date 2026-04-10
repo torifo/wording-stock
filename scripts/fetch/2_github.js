@@ -34,52 +34,33 @@ const UA           = 'WordingStock/1.0 (educational; https://github.com/torifo/w
  *   - transform 関数で統一フォーマットに変換する
  */
 const DATASETS = [
-  // ① 四字熟語（5,000語以上・意味・読み・出典付き）
-  {
-    name: 'skatane/yojijukugo-db',
-    url:  'https://raw.githubusercontent.com/skatane/yojijukugo-db/master/yojijukugo.json',
-    type: 'json',
-    category: '四字熟語',
-    license: 'MIT',
-    transform: (item) => ({
-      phrase:        item.word    || item.kanji   || item.phrase  || null,
-      reading:       item.yomi    || item.kana    || item.reading || null,
-      meaning:       item.meaning || item.definition || item.desc || null,
-      source:        item.source  || item.origin  || 'skatane/yojijukugo-db (GitHub)',
-      reference_url: item.url     || item.ref     || 'https://github.com/skatane/yojijukugo-db',
-    }),
-  },
-
-  // ② ことわざ（意味付き）
+  // ① ことわざ・四字熟語混合（配列形式: [phrase, reading, 説明文]）
   {
     name: 'barkdoll/kotowaza-bot',
     url:  'https://raw.githubusercontent.com/barkdoll/kotowaza-bot/master/kotowaza.json',
     type: 'json',
-    category: 'ことわざ',
+    category: 'ことわざ',  // 4文字なら自動で四字熟語に変更
     license: 'MIT',
-    transform: (item) => ({
-      phrase:        item.kotowaza || item.proverb || item.phrase || item.text || null,
-      reading:       item.reading  || item.yomi   || null,
-      meaning:       item.meaning  || item.definition || item.desc || null,
-      source:        item.source   || 'barkdoll/kotowaza-bot (GitHub)',
-      reference_url: item.url      || 'https://github.com/barkdoll/kotowaza-bot',
-    }),
-  },
-
-  // ③ 慣用句
-  {
-    name: 'shinkansan/idiom-dataset',
-    url:  'https://raw.githubusercontent.com/shinkansan/idiom-dataset/master/idioms.json',
-    type: 'json',
-    category: '慣用句',
-    license: 'MIT',
-    transform: (item) => ({
-      phrase:        item.idiom   || item.phrase || item.word || item.text || null,
-      reading:       item.reading || item.yomi   || null,
-      meaning:       item.meaning || item.definition || item.desc || null,
-      source:        item.source  || 'shinkansan/idiom-dataset (GitHub)',
-      reference_url: item.url     || 'https://github.com/shinkansan/idiom-dataset',
-    }),
+    transform: (item) => {
+      // データ形式: ["表現", "よみ", "説明文\n\n意味"]
+      if (!Array.isArray(item)) return { phrase: null, reading: null, meaning: null, source: null, reference_url: null };
+      const phrase  = item[0] || null;
+      const reading = item[1] || null;
+      const raw     = (item[2] || '');
+      // 「\n\n」以降が意味。「⇒他の言葉」だけの場合はスキップ
+      const parts   = raw.split('\n\n');
+      const tail    = parts.slice(1).join(' ').trim();
+      const meaning = tail && !tail.startsWith('⇒') && !tail.startsWith('→')
+        ? tail.replace(/[（(][ぁ-ん]+[）)]/g, '').trim()
+        : null;
+      return {
+        phrase,
+        reading,
+        meaning,
+        source:        'barkdoll/kotowaza-bot (GitHub)',
+        reference_url: 'https://github.com/barkdoll/kotowaza-bot',
+      };
+    },
   },
 
   // 追加したい場合はここにオブジェクトを追加
@@ -107,12 +88,18 @@ function buildEntry(transformed, category, license) {
   const { phrase, reading, meaning, source, reference_url } = transformed;
   if (!phrase || phrase.length > 50) return null;
 
+  // 4文字の漢字表現は四字熟語として分類
+  const purePhrase = phrase.replace(/[（(][^）)]*[）)]/g, '').trim();
+  const detectedCategory = (category === 'ことわざ' && [...purePhrase].length === 4)
+    ? '四字熟語'
+    : category;
+
   const content = reading ? `${phrase}（${reading}）` : phrase;
   return {
     phrase,
     reading:       reading || null,
     meaning:       meaning || null,
-    category,
+    category:      detectedCategory,
     source:        source || '不明',
     reference_url: reference_url || null,
     license,
