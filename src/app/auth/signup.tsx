@@ -49,7 +49,7 @@ export default function SignupScreen() {
       <YStack width="100%" maxWidth={440} gap="$5">
         {/* アプリロゴ・タイトル */}
         <YStack alignItems="center" gap="$2">
-          <Text fontSize={32} fontWeight="800" letterSpacing={-0.5} color="$color12">
+          <Text fontSize={32} fontWeight="800" letterSpacing={-0.5} color="$blue9">
             Wording Stock
           </Text>
           <Text fontSize="$3" color="$color9" textAlign="center">
