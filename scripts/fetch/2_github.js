@@ -34,40 +34,56 @@ const UA           = 'WordingStock/1.0 (educational; https://github.com/torifo/w
  *   - transform 関数で統一フォーマットに変換する
  */
 const DATASETS = [
-  // --- 現在設定済みのデータセット ---
-  // （動作確認済みの URL があればここに追加してください）
+  // ① 四字熟語（5,000語以上・意味・読み・出典付き）
+  {
+    name: 'skatane/yojijukugo-db',
+    url:  'https://raw.githubusercontent.com/skatane/yojijukugo-db/master/yojijukugo.json',
+    type: 'json',
+    category: '四字熟語',
+    license: 'MIT',
+    transform: (item) => ({
+      phrase:        item.word    || item.kanji   || item.phrase  || null,
+      reading:       item.yomi    || item.kana    || item.reading || null,
+      meaning:       item.meaning || item.definition || item.desc || null,
+      source:        item.source  || item.origin  || 'skatane/yojijukugo-db (GitHub)',
+      reference_url: item.url     || item.ref     || 'https://github.com/skatane/yojijukugo-db',
+    }),
+  },
 
-  // 例: 四字熟語
-  // {
-  //   name: 'skatane/yojijukugo-db',
-  //   url:  'https://raw.githubusercontent.com/skatane/yojijukugo-db/main/yojijukugo.json',
-  //   type: 'json',
-  //   category: '四字熟語',
-  //   license: 'MIT',
-  //   transform: (item) => ({
-  //     phrase:   item.word,
-  //     reading:  item.yomi,
-  //     meaning:  item.meaning,
-  //     source:   'yojijukugo-db (GitHub)',
-  //     reference_url: 'https://github.com/skatane/yojijukugo-db',
-  //   }),
-  // },
+  // ② ことわざ（意味付き）
+  {
+    name: 'barkdoll/kotowaza-bot',
+    url:  'https://raw.githubusercontent.com/barkdoll/kotowaza-bot/master/kotowaza.json',
+    type: 'json',
+    category: 'ことわざ',
+    license: 'MIT',
+    transform: (item) => ({
+      phrase:        item.kotowaza || item.proverb || item.phrase || item.text || null,
+      reading:       item.reading  || item.yomi   || null,
+      meaning:       item.meaning  || item.definition || item.desc || null,
+      source:        item.source   || 'barkdoll/kotowaza-bot (GitHub)',
+      reference_url: item.url      || 'https://github.com/barkdoll/kotowaza-bot',
+    }),
+  },
 
-  // 例: ことわざ (CSV形式)
-  // {
-  //   name: 'xxx/japanese-proverbs',
-  //   url:  'https://raw.githubusercontent.com/xxx/japanese-proverbs/main/proverbs.csv',
-  //   type: 'csv',
-  //   category: 'ことわざ',
-  //   license: 'CC0',
-  //   transform: (item) => ({
-  //     phrase:   item.proverb,
-  //     reading:  item.reading || null,
-  //     meaning:  item.meaning,
-  //     source:   'xxx/japanese-proverbs (GitHub)',
-  //     reference_url: null,
-  //   }),
-  // },
+  // ③ 慣用句
+  {
+    name: 'shinkansan/idiom-dataset',
+    url:  'https://raw.githubusercontent.com/shinkansan/idiom-dataset/master/idioms.json',
+    type: 'json',
+    category: '慣用句',
+    license: 'MIT',
+    transform: (item) => ({
+      phrase:        item.idiom   || item.phrase || item.word || item.text || null,
+      reading:       item.reading || item.yomi   || null,
+      meaning:       item.meaning || item.definition || item.desc || null,
+      source:        item.source  || 'shinkansan/idiom-dataset (GitHub)',
+      reference_url: item.url     || 'https://github.com/shinkansan/idiom-dataset',
+    }),
+  },
+
+  // 追加したい場合はここにオブジェクトを追加
+  // ブラウザで Raw URL にアクセスして 200 が返ることを確認してから追加すること
 ];
 
 async function fetchText(url) {
