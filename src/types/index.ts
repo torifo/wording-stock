@@ -23,11 +23,14 @@ export interface Expression {
   id: string;
   user_id: string;
   content: string;
+  meaning: string | null;
   category: Category;
   censor_status: CensorStatus;
   is_ai_checked: boolean;
   visibility: boolean;
   created_at: string;
+  source_name: string | null;
+  source_url: string | null;
   // JOIN フィールド
   profile?: Pick<Profile, 'username' | 'avatar_url'>;
   appropriate_count?: number;

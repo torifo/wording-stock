@@ -1,5 +1,6 @@
-import { Image } from 'react-native';
-import { Card, Text, XStack, YStack, Avatar } from 'tamagui';
+import { useState } from 'react';
+import { Card, Text, XStack, YStack, Avatar, Button } from 'tamagui';
+import { Ionicons } from '@expo/vector-icons';
 import { GreyLayer } from './GreyLayer';
 import { VoteButtons } from './VoteButtons';
 import type { Expression } from '../types';
@@ -14,12 +15,12 @@ function formatDate(iso: string): string {
 }
 
 export function ExpressionCard({ expression }: Props) {
-  // banned は非表示（親で除外されているはずだが念のため）
-  if (expression.censor_status === 'banned') {
-    return null;
-  }
+  const [showMeaning, setShowMeaning] = useState(false);
+
+  if (expression.censor_status === 'banned') return null;
 
   const { profile } = expression;
+  const hasMeaning = !!expression.meaning;
 
   return (
     <Card bordered padding="$3" marginBottom="$2">
@@ -42,23 +43,64 @@ export function ExpressionCard({ expression }: Props) {
             {profile?.username ?? '匿名'}
           </Text>
           <XStack gap="$2">
-            <Text fontSize="$2" color="$gray9">
-              {expression.category}
-            </Text>
-            <Text fontSize="$2" color="$gray9">
-              {formatDate(expression.created_at)}
-            </Text>
+            <Text fontSize="$2" color="$gray9">{expression.category}</Text>
+            <Text fontSize="$2" color="$gray9">{formatDate(expression.created_at)}</Text>
           </XStack>
         </YStack>
       </XStack>
 
-      {/* 本文: grey の場合は GreyLayer を適用 */}
+      {/* 言葉・表現（メイン） */}
       {expression.censor_status === 'grey' ? (
         <GreyLayer content={expression.content} />
       ) : (
-        <Text fontSize="$4" marginBottom="$2">
+        <Text fontSize="$6" fontWeight="700" marginBottom="$2" letterSpacing={-0.3}>
           {expression.content}
         </Text>
+      )}
+
+      {/* 意味トグル */}
+      {hasMeaning && (
+        <YStack marginBottom="$2">
+          <Button
+            size="$2"
+            chromeless
+            onPress={() => setShowMeaning(!showMeaning)}
+            paddingHorizontal={0}
+            alignSelf="flex-start"
+            color="$blue10"
+          >
+            <XStack alignItems="center" gap="$1">
+              <Ionicons
+                name={showMeaning ? 'chevron-up-outline' : 'book-outline'}
+                size={14}
+                color="#BC002D"
+              />
+              <Text fontSize="$2" color="$blue10">
+                {showMeaning ? '閉じる' : '意味を見る'}
+              </Text>
+            </XStack>
+          </Button>
+
+          {showMeaning && (
+            <YStack
+              backgroundColor="$blue1"
+              borderRadius="$3"
+              padding="$3"
+              marginTop="$2"
+              borderLeftWidth={3}
+              borderLeftColor="$blue9"
+            >
+              <Text fontSize="$3" color="$color11" lineHeight={22}>
+                {expression.meaning}
+              </Text>
+              {expression.source_name && (
+                <Text fontSize="$1" color="$color8" marginTop="$2">
+                  出典: {expression.source_name}
+                </Text>
+              )}
+            </YStack>
+          )}
+        </YStack>
       )}
 
       {/* 投票ボタン */}

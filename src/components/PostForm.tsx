@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Button, Input, Text, TextArea, YStack, XStack, Select, Spinner } from 'tamagui';
+import { Button, Text, TextArea, YStack, XStack, Select, Spinner } from 'tamagui';
 import { usePost } from '../hooks/usePost';
 import { useAuth } from '../context/AuthContext';
 import type { Category } from '../types';
 
 const CATEGORIES: Category[] = ['四字熟語', '慣用句', 'ことわざ', '詩・俳句', '名言・格言', 'その他'];
-const MAX_LENGTH = 280;
+const CONTENT_MAX = 50;   // 言葉・表現（短め）
+const MEANING_MAX  = 500; // 意味・説明
 
 interface Props {
   onSuccess?: () => void;
@@ -14,18 +15,20 @@ interface Props {
 export function PostForm({ onSuccess }: Props) {
   const { user } = useAuth();
   const { posting, error, warning, post, clearMessages } = usePost();
-  const [content, setContent] = useState('');
+  const [content, setContent]   = useState('');
+  const [meaning, setMeaning]   = useState('');
   const [category, setCategory] = useState<Category>('四字熟語');
 
-  const isOverLimit = content.length > MAX_LENGTH;
-  const isEmpty = content.trim().length === 0;
-  const canPost = !isEmpty && !isOverLimit && !posting;
+  const contentOver = content.length > CONTENT_MAX;
+  const meaningOver = meaning.length > MEANING_MAX;
+  const canPost = content.trim().length > 0 && !contentOver && !meaningOver && !posting;
 
   async function handlePost() {
     if (!user || !canPost) return;
-    const success = await post({ content, category, userId: user.id });
+    const success = await post({ content, meaning, category, userId: user.id });
     if (success) {
       setContent('');
+      setMeaning('');
       clearMessages();
       onSuccess?.();
     }
@@ -33,28 +36,48 @@ export function PostForm({ onSuccess }: Props) {
 
   return (
     <YStack gap="$3" padding="$4">
-      <TextArea
-        placeholder="日本語の豊かな表現を投稿しよう..."
-        value={content}
-        onChangeText={(v) => { clearMessages(); setContent(v); }}
-        minHeight={120}
-      />
 
-      {/* 文字数カウンター */}
-      <XStack justifyContent="flex-end">
-        <Text
-          fontSize="$2"
-          color={isOverLimit ? '$red10' : '$gray10'}
-        >
-          {content.length} / {MAX_LENGTH}
+      {/* 言葉・表現 */}
+      <YStack gap="$1">
+        <Text fontSize="$3" fontWeight="600" color="$color11">
+          言葉・表現
         </Text>
-      </XStack>
+        <TextArea
+          placeholder="四字熟語・慣用句・ことわざなど..."
+          value={content}
+          onChangeText={(v) => { clearMessages(); setContent(v); }}
+          minHeight={70}
+          maxHeight={120}
+        />
+        <XStack justifyContent="flex-end">
+          <Text fontSize="$1" color={contentOver ? '$red10' : '$color8'}>
+            {content.length} / {CONTENT_MAX}
+          </Text>
+        </XStack>
+        {contentOver && (
+          <Text color="$red10" fontSize="$2">{CONTENT_MAX}文字以内で入力してください</Text>
+        )}
+      </YStack>
 
-      {isOverLimit && (
-        <Text color="$red10" fontSize="$3">
-          280 文字以内で入力してください
+      {/* 意味・説明 */}
+      <YStack gap="$1">
+        <Text fontSize="$3" fontWeight="600" color="$color11">
+          意味・説明
+          <Text fontSize="$2" fontWeight="400" color="$color8"> （任意）</Text>
         </Text>
-      )}
+        <TextArea
+          placeholder="意味や使い方、背景などを書いてみよう..."
+          value={meaning}
+          onChangeText={(v) => { clearMessages(); setMeaning(v); }}
+          minHeight={90}
+          maxHeight={160}
+        />
+        <XStack justifyContent="flex-end">
+          <Text fontSize="$1" color={meaningOver ? '$red10' : '$color8'}>
+            {meaning.length} / {MEANING_MAX}
+          </Text>
+        </XStack>
+      </YStack>
 
       {/* カテゴリ選択 */}
       <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
@@ -75,23 +98,24 @@ export function PostForm({ onSuccess }: Props) {
       </Select>
 
       {warning !== '' && (
-        <Text color="$orange10" fontSize="$3">
-          {warning}
-        </Text>
+        <Text color="$orange10" fontSize="$3">{warning}</Text>
       )}
-
       {error !== '' && (
-        <Text color="$red10" fontSize="$3">
-          {error}
-        </Text>
+        <Text color="$red10" fontSize="$3">{error}</Text>
       )}
 
       <Button
         onPress={handlePost}
         disabled={!canPost}
         icon={posting ? <Spinner /> : undefined}
+        backgroundColor="$blue9"
+        color="white"
+        borderRadius="$4"
+        fontWeight="700"
+        pressStyle={{ backgroundColor: '$blue10' }}
+        opacity={canPost ? 1 : 0.5}
       >
-        投稿する
+        {posting ? '' : '投稿する'}
       </Button>
     </YStack>
   );

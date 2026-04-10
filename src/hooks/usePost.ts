@@ -5,6 +5,7 @@ import type { Category } from '../types';
 
 interface PostInput {
   content: string;
+  meaning: string;
   category: Category;
   userId: string;
 }
@@ -27,7 +28,7 @@ export function usePost(): UsePostResult {
     setWarning('');
   }
 
-  async function post({ content, category, userId }: PostInput): Promise<boolean> {
+  async function post({ content, meaning, category, userId }: PostInput): Promise<boolean> {
     clearMessages();
 
     // ClientFilter で禁止用語チェック
@@ -48,6 +49,7 @@ export function usePost(): UsePostResult {
     const { error: insertError } = await supabase.from('expressions').insert({
       user_id: userId,
       content,
+      meaning: meaning.trim() || null,
       category,
       censor_status: 'safe',
     });

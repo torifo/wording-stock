@@ -136,16 +136,23 @@ async function main() {
   }
 
   // インサート
-  const rows = entries.map(e => ({
-    user_id:      systemUserId,
-    content:      e.content,
-    category:     e.category,
-    censor_status: 'safe',
-    is_ai_checked: true,
-    visibility:   true,
-    source_name:  e.source_name || null,
-    source_url:   e.source_url  || null,
-  }));
+  const rows = entries.map(e => {
+    // content が "term（reading）\nmeaning" 形式の場合は分離する
+    const parts = e.content.split('\n');
+    const word    = parts[0].trim();
+    const meaning = e.meaning || (parts.length > 1 ? parts.slice(1).join('\n').trim() : null);
+    return {
+      user_id:       systemUserId,
+      content:       word,
+      meaning:       meaning || null,
+      category:      e.category,
+      censor_status: 'safe',
+      is_ai_checked: true,
+      visibility:    true,
+      source_name:   e.source_name || null,
+      source_url:    e.source_url  || null,
+    };
+  });
 
   const chunks = chunkArray(rows, BATCH_SIZE);
   let inserted = 0;
