@@ -23,12 +23,17 @@ const UA          = 'WordingStock/1.0 (educational; https://github.com/torifo/wo
 const BATCH_SIZE  = 50;   // Wikipedia API の上限
 const RATE_MS     = 1000; // リクエスト間隔（ms）
 
-/** 取得対象カテゴリ */
+/**
+ * 取得対象カテゴリ
+ * Wikipedia の階層構造上、親カテゴリ直下には記事がなくサブカテゴリのみの場合がある。
+ * ブラウザで以下を確認してカテゴリ名を検証できる:
+ *   https://ja.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=Category:日本の四字熟語&cmlimit=10&format=json
+ */
 const TARGETS = [
-  { category: 'Category:四字熟語',         appCategory: '四字熟語',   maxPages: 600 },
-  { category: 'Category:日本語のことわざ',  appCategory: 'ことわざ',   maxPages: 400 },
-  { category: 'Category:日本語の慣用句',    appCategory: '慣用句',     maxPages: 400 },
-  { category: 'Category:格言',             appCategory: '名言・格言', maxPages: 200 },
+  { category: 'Category:日本の四字熟語', appCategory: '四字熟語',   maxPages: 600 },
+  { category: 'Category:ことわざ',       appCategory: 'ことわざ',   maxPages: 400 },
+  { category: 'Category:慣用句',         appCategory: '慣用句',     maxPages: 400 },
+  { category: 'Category:格言',           appCategory: '名言・格言', maxPages: 200 },
 ];
 
 async function get(params) {
@@ -56,6 +61,8 @@ async function getCategoryMembers(category, maxPages) {
       cmtype:  'page',
       ...(cmcontinue ? { cmcontinue } : {}),
     };
+    // デバッグ: カテゴリが空のときはこの URL をブラウザで確認
+    // console.log(`Debug: ${WIKI_API}?${new URLSearchParams({ format: 'json', ...params })}`);
     const data = await get(params);
     const members = data.query?.categorymembers ?? [];
     titles.push(...members.map(m => m.title));
@@ -106,25 +113,35 @@ function cleanExtract(text) {
 function parseEntry(title, extract, appCategory, sourceUrl) {
   if (!title || title.length > 30) return null;
 
-  // 曖昧さ回避ページ・一覧ページを除外
-  if (/\(曖昧さ回避\)|一覧|の節|ページ/.test(title)) return null;
+  // 曖昧さ回避・一覧・テンプレートページを除外
+  if (/[（(]曖昧さ回避[）)]|一覧$|の節$|ページ$|テンプレート/.test(title)) return null;
   if (!extract || extract.length < 5) return null;
 
   const cleaned = cleanExtract(extract);
 
-  // 読みを抽出（「タイトル（よみ）」パターン）
-  const readingMatch = cleaned.match(new RegExp(
-    `${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[（(]([^）)]{1,20})[）)]`
-  ));
-  const reading = readingMatch ? readingMatch[1] : null;
+  // 読みを抽出
+  // パターン1: タイトル直後のカッコ「温故知新（おんこちしん）」
+  // パターン2: 冒頭のカッコ（太字 ''' を考慮）「'''温故知新'''（おんこちしん）」
+  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const readingMatch =
+    cleaned.match(new RegExp(`${escapedTitle}\\s*[（(]([ぁ-ん]{1,20})[）)]`)) ||
+    cleaned.match(/^[^（(]*[（(]([ぁ-ん]{1,20})[）)]/);
+  // 「、」区切りで複数読みがある場合は最初だけ採用
+  const reading = readingMatch ? readingMatch[1].split(/[、,]/)[0].trim() : null;
 
-  // 意味を抽出（最初の文）
-  const firstSentenceMatch = cleaned.match(/([^。！？\n]{10,150}[。！？])/);
-  const meaning = firstSentenceMatch ? firstSentenceMatch[1].trim() : null;
+  // 意味を抽出
+  // パターン1: 「〜は、〜。」形式（「は、」以降の最初の文）
+  // パターン2: 最初の句点までの文
+  const isMatch = cleaned.match(/は[、,]\s*(.{5,150}?[。！？])/);
+  const firstSentence = cleaned.match(/^.{5,150}?[。！？]/);
+  const meaning = isMatch
+    ? isMatch[1].trim()
+    : firstSentence
+    ? firstSentence[0].trim()
+    : cleaned.slice(0, 100).trim() + (cleaned.length > 100 ? '…' : '');
 
-  if (!meaning) return null;
+  if (!meaning || meaning.length < 5) return null;
 
-  // content は言葉のみ（読みはあれば付加）
   const content = reading ? `${title}（${reading}）` : title;
   if (content.length > 50) return null;
 
@@ -136,10 +153,9 @@ function parseEntry(title, extract, appCategory, sourceUrl) {
     source:        'Wikipedia 日本語版',
     reference_url: sourceUrl,
     license:       'CC BY-SA 4.0',
-    // seed-expressions.js が使う統一フィールド
     content,
-    source_name:  'Wikipedia',
-    source_url:   `https://ja.wikipedia.org/wiki/${encodeURIComponent(title)}`,
+    source_name:   'Wikipedia',
+    source_url:    `https://ja.wikipedia.org/wiki/${encodeURIComponent(title)}`,
   };
 }
 
