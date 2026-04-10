@@ -7,6 +7,7 @@ export type Category =
   | '慣用句'
   | 'ことわざ'
   | '詩・俳句'
+  | '名言・格言'
   | 'その他';
 
 export interface Profile {

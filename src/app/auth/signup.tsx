@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Redirect, router } from 'expo-router';
-import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity } from 'react-native';
 import {
   Button,
   Input,
@@ -10,6 +10,7 @@ import {
   Spinner,
   Separator,
 } from 'tamagui';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -17,6 +18,9 @@ export default function SignupScreen() {
   const { session } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,6 +33,10 @@ export default function SignupScreen() {
       setError('パスワードは 8 文字以上で入力してください');
       return;
     }
+    if (password !== confirmPassword) {
+      setError('パスワードが一致しません');
+      return;
+    }
     setLoading(true);
     setError('');
     const { error: signUpError } = await supabase.auth.signUp({ email, password });
@@ -39,6 +47,8 @@ export default function SignupScreen() {
       router.replace('/auth/login');
     }
   }
+
+  const isDisabled = loading || email === '' || password === '' || confirmPassword === '';
 
   return (
     <KeyboardAvoidingView
@@ -85,19 +95,59 @@ export default function SignupScreen() {
               size="$4"
               borderRadius="$4"
             />
+
+            {/* パスワード */}
             <YStack gap="$1">
-              <Input
-                placeholder="パスワード（8文字以上）"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                size="$4"
-                borderRadius="$4"
-              />
+              <XStack alignItems="center">
+                <Input
+                  flex={1}
+                  placeholder="パスワード（8文字以上）"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  size="$4"
+                  borderRadius="$4"
+                  paddingRight="$10"
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color="#888"
+                  />
+                </TouchableOpacity>
+              </XStack>
               <Text fontSize="$1" color="$color8" paddingLeft="$1">
                 8文字以上で設定してください
               </Text>
             </YStack>
+
+            {/* パスワード確認 */}
+            <XStack alignItems="center">
+              <Input
+                flex={1}
+                placeholder="パスワード（確認）"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                size="$4"
+                borderRadius="$4"
+                paddingRight="$10"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#888"
+                />
+              </TouchableOpacity>
+            </XStack>
           </YStack>
 
           {error !== '' && (
@@ -123,8 +173,8 @@ export default function SignupScreen() {
             color="white"
             pressStyle={{ backgroundColor: '$blue10' }}
             onPress={handleSignup}
-            disabled={loading || email === '' || password === ''}
-            opacity={loading || email === '' || password === '' ? 0.5 : 1}
+            disabled={isDisabled}
+            opacity={isDisabled ? 0.5 : 1}
             icon={loading ? <Spinner color="white" /> : undefined}
           >
             {loading ? '' : '登録する'}
@@ -136,7 +186,6 @@ export default function SignupScreen() {
             <Separator flex={1} />
           </XStack>
 
-          {/* Google 登録（準備中） */}
           <Button
             size="$4"
             borderRadius="$4"
@@ -171,5 +220,10 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    padding: 4,
   },
 });

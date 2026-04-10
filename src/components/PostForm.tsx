@@ -4,7 +4,7 @@ import { usePost } from '../hooks/usePost';
 import { useAuth } from '../context/AuthContext';
 import type { Category } from '../types';
 
-const CATEGORIES: Category[] = ['四字熟語', '慣用句', 'ことわざ', '詩・俳句', 'その他'];
+const CATEGORIES: Category[] = ['四字熟語', '慣用句', 'ことわざ', '詩・俳句', '名言・格言', 'その他'];
 const MAX_LENGTH = 280;
 
 interface Props {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Redirect, router } from 'expo-router';
-import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity } from 'react-native';
 import {
   Button,
   Input,
@@ -10,6 +10,7 @@ import {
   Spinner,
   Separator,
 } from 'tamagui';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -17,6 +18,7 @@ export default function LoginScreen() {
   const { session } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -81,14 +83,28 @@ export default function LoginScreen() {
               size="$4"
               borderRadius="$4"
             />
-            <Input
-              placeholder="パスワード"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              size="$4"
-              borderRadius="$4"
-            />
+            <XStack alignItems="center">
+              <Input
+                flex={1}
+                placeholder="パスワード"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                size="$4"
+                borderRadius="$4"
+                paddingRight="$10"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#888"
+                />
+              </TouchableOpacity>
+            </XStack>
           </YStack>
 
           {error !== '' && (
@@ -162,5 +178,10 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    padding: 4,
   },
 });
