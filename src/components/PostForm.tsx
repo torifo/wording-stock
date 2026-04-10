@@ -59,14 +59,14 @@ export function PostForm({ onSuccess }: Props) {
         )}
       </YStack>
 
-      {/* 意味・説明 */}
+      {/* 意味・思い・ニュアンス */}
       <YStack gap="$1">
         <Text fontSize="$3" fontWeight="600" color="$color11">
-          意味・説明
+          意味・思い・ニュアンス
           <Text fontSize="$2" fontWeight="400" color="$color8"> （任意）</Text>
         </Text>
         <TextArea
-          placeholder="意味や使い方、背景などを書いてみよう..."
+          placeholder="意味や使い方、込めた思い、言葉のニュアンスなどを書いてみよう..."
           value={meaning}
           onChangeText={(v) => { clearMessages(); setMeaning(v); }}
           minHeight={90}
