@@ -11,8 +11,9 @@ yarn-error.log*
 
 # Expo
 .expo/
-dist/
 web-build/
+# dist はVercelビルド用のためgit管理外
+dist/
 
 # Env
 .env
