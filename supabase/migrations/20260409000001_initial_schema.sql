@@ -3,8 +3,15 @@
 -- ============================================================
 
 -- ---- ENUM 型 ----
-CREATE TYPE censor_status AS ENUM ('safe', 'grey', 'banned');
-CREATE TYPE vote_type AS ENUM ('appropriate', 'inappropriate');
+DO $$ BEGIN
+  CREATE TYPE censor_status AS ENUM ('safe', 'grey', 'banned');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE vote_type AS ENUM ('appropriate', 'inappropriate');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 
 -- ============================================================
