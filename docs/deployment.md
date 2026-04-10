@@ -95,7 +95,9 @@ supabase functions deploy ai-checker
 
 ```bash
 # 事前に Supabase ダッシュボードで設定:
-# Authentication → Providers → Email → "Confirm email" を OFF
+# Authentication → Configuration → Sign In / Sign Up
+#   → "Email confirmations" を OFF
+# （旧 UI の場合: Authentication → Providers → Email → "Confirm email" を OFF）
 
 node scripts/seed-test-users.js
 ```
@@ -129,7 +131,12 @@ Vercel の Project Settings → Environment Variables に以下を追加：
 | `EXPO_PUBLIC_SUPABASE_URL` | `.env.local` の値 |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `.env.local` の値 |
 
-**Production・Preview・Development すべてにチェック**を入れること。
+各変数を追加する際、入力欄の下に **Environments** チェックボックスが表示される：
+- ☑ Production
+- ☑ Preview
+- ☑ Development
+
+デフォルトで全チェック済みなので、そのまま **Save** すれば OK。
 
 ### 3-3. デプロイ実行
 
