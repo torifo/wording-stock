@@ -1,10 +1,10 @@
 /**
- * Wikipedia 日本語版からの表現データ取得スクリプト（改良版）
+ * Wikipedia 日本語版からの表現データ取得スクリプト
  *
  * 戦略:
- *   1. Wikipedia カテゴリ API でページタイトル一覧を取得
- *   2. 50件ずつバッチで extracts（冒頭段落）を取得
- *   3. 冒頭段落から意味・読みを抽出
+ *   A) カテゴリ API    → ことわざ・慣用句（記事が直接カテゴリに属している）
+ *   B) 一覧ページ方式  → 四字熟語・格言（一覧ページからタイトル/読みを抽出し
+ *                        個別記事から意味をバッチ取得）
  *
  * ライセンス: CC BY-SA 4.0
  *   https://creativecommons.org/licenses/by-sa/4.0/deed.ja
@@ -20,21 +20,22 @@ const OUTPUT_DIR  = path.join(__dirname, '..', 'data', 'raw');
 const OUTPUT_FILE = path.join(OUTPUT_DIR, 'wikipedia.json');
 const WIKI_API    = 'https://ja.wikipedia.org/w/api.php';
 const UA          = 'WordingStock/1.0 (educational; https://github.com/torifo/wording-stock)';
-const BATCH_SIZE  = 50;   // Wikipedia API の上限
-const RATE_MS     = 1000; // リクエスト間隔（ms）
+const BATCH_SIZE  = 50;
+const RATE_MS     = 1000;
 
-/**
- * 取得対象カテゴリ
- * Wikipedia の階層構造上、親カテゴリ直下には記事がなくサブカテゴリのみの場合がある。
- * ブラウザで以下を確認してカテゴリ名を検証できる:
- *   https://ja.wikipedia.org/w/api.php?action=query&list=categorymembers&cmtitle=Category:日本の四字熟語&cmlimit=10&format=json
- */
-const TARGETS = [
-  { category: 'Category:日本の四字熟語', appCategory: '四字熟語',   maxPages: 600 },
-  { category: 'Category:ことわざ',       appCategory: 'ことわざ',   maxPages: 400 },
-  { category: 'Category:慣用句',         appCategory: '慣用句',     maxPages: 400 },
-  { category: 'Category:格言',           appCategory: '名言・格言', maxPages: 200 },
+// --- 方式 A: カテゴリ API（ことわざ・慣用句）---
+const CATEGORY_TARGETS = [
+  { category: 'Category:ことわざ', appCategory: 'ことわざ', maxPages: 400 },
+  { category: 'Category:慣用句',   appCategory: '慣用句',   maxPages: 400 },
+  { category: 'Category:名言',     appCategory: '名言・格言', maxPages: 200 },
 ];
+
+// --- 方式 B: 一覧ページ（四字熟語・格言）---
+const LIST_PAGE_TARGETS = [
+  { page: '四字熟語の一覧', appCategory: '四字熟語' },
+];
+
+// -------------------------------------------------------
 
 async function get(params) {
   const url = `${WIKI_API}?${new URLSearchParams({ format: 'json', formatversion: '2', ...params })}`;
@@ -43,95 +44,71 @@ async function get(params) {
   return res.json();
 }
 
-async function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function cleanText(text) {
+  return (text || '')
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')
+    .replace(/\[\[([^\]]+)\]\]/g, '$1')
+    .replace(/'{2,3}/g, '')
+    .replace(/\{\{[^}]*\}\}/g, '')
+    .replace(/<!--.*?-->/gs, '')
+    .replace(/<ref[^>]*>.*?<\/ref>/gs, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .trim();
 }
 
-/** カテゴリに属するページタイトル一覧を取得（最大 maxPages 件） */
+// -------------------------------------------------------
+// 方式 A: カテゴリ API
+// -------------------------------------------------------
+
 async function getCategoryMembers(category, maxPages) {
   const titles = [];
-  let cmcontinue = undefined;
-
+  let cmcontinue;
   while (titles.length < maxPages) {
     const params = {
-      action:  'query',
-      list:    'categorymembers',
-      cmtitle: category,
-      cmlimit: 500,
-      cmtype:  'page',
+      action: 'query', list: 'categorymembers',
+      cmtitle: category, cmlimit: 500, cmtype: 'page',
       ...(cmcontinue ? { cmcontinue } : {}),
     };
-    // デバッグ: カテゴリが空のときはこの URL をブラウザで確認
-    // console.log(`Debug: ${WIKI_API}?${new URLSearchParams({ format: 'json', ...params })}`);
+    // デバッグ用: カテゴリが 0 件のとき下記 URL をブラウザで確認
+    // console.log(`Debug: ${WIKI_API}?${new URLSearchParams({ format:'json', ...params })}`);
     const data = await get(params);
-    const members = data.query?.categorymembers ?? [];
-    titles.push(...members.map(m => m.title));
-
+    titles.push(...(data.query?.categorymembers ?? []).map(m => m.title));
     if (!data.continue?.cmcontinue || titles.length >= maxPages) break;
     cmcontinue = data.continue.cmcontinue;
     await sleep(RATE_MS);
   }
-
   return titles.slice(0, maxPages);
 }
 
-/** 複数タイトルの冒頭段落を一括取得 */
 async function fetchExtracts(titles) {
   const data = await get({
-    action:       'query',
-    titles:       titles.join('|'),
-    prop:         'extracts|revisions',
-    exintro:      true,
-    explaintext:  true,
-    rvprop:       'content',
-    rvslots:      'main',
-    rvsection:    0,
+    action: 'query', titles: titles.join('|'),
+    prop: 'extracts', exintro: true, explaintext: true,
   });
-
-  const pages = Object.values(data.query?.pages ?? {});
-  return pages.map(p => ({
-    title:   p.title,
-    extract: p.extract ?? '',
+  return Object.values(data.query?.pages ?? {}).map(p => ({
+    title: p.title, extract: p.extract ?? '',
   }));
 }
 
-/** HTML タグ・注釈を除去してプレーンテキストに */
-function cleanExtract(text) {
-  return text
-    .replace(/<[^>]+>/g, '')
-    .replace(/\[[^\]]*\]/g, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-/**
- * タイトルとエキストラクトからエントリを生成
- *
- * 読みの抽出:  タイトル直後の（...）を reading とみなす
- * 意味の抽出:  冒頭段落の最初の文を meaning とする
- */
-function parseEntry(title, extract, appCategory, sourceUrl) {
+function parseEntry(title, extract, appCategory) {
   if (!title || title.length > 30) return null;
-
-  // 曖昧さ回避・一覧・テンプレートページを除外
   if (/[（(]曖昧さ回避[）)]|一覧$|の節$|ページ$|テンプレート/.test(title)) return null;
-  if (!extract || extract.length < 5) return null;
 
-  const cleaned = cleanExtract(extract);
+  const cleaned = (extract || '').replace(/<[^>]+>/g, '').replace(/\[[^\]]*\]/g, '').trim();
+  if (cleaned.length < 5) return null;
 
-  // 読みを抽出
-  // パターン1: タイトル直後のカッコ「温故知新（おんこちしん）」
-  // パターン2: 冒頭のカッコ（太字 ''' を考慮）「'''温故知新'''（おんこちしん）」
-  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // 読みを抽出（ひらがなのカッコ内）
+  const esc = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const readingMatch =
-    cleaned.match(new RegExp(`${escapedTitle}\\s*[（(]([ぁ-ん]{1,20})[）)]`)) ||
+    cleaned.match(new RegExp(`${esc}\\s*[（(]([ぁ-ん]{1,20})[）)]`)) ||
     cleaned.match(/^[^（(]*[（(]([ぁ-ん]{1,20})[）)]/);
-  // 「、」区切りで複数読みがある場合は最初だけ採用
   const reading = readingMatch ? readingMatch[1].split(/[、,]/)[0].trim() : null;
 
   // 意味を抽出
-  // パターン1: 「〜は、〜。」形式（「は、」以降の最初の文）
-  // パターン2: 最初の句点までの文
   const isMatch = cleaned.match(/は[、,]\s*(.{5,150}?[。！？])/);
   const firstSentence = cleaned.match(/^.{5,150}?[。！？]/);
   const meaning = isMatch
@@ -146,67 +123,155 @@ function parseEntry(title, extract, appCategory, sourceUrl) {
   if (content.length > 50) return null;
 
   return {
-    phrase:        title,
-    reading:       reading,
-    meaning:       meaning,
-    category:      appCategory,
-    source:        'Wikipedia 日本語版',
-    reference_url: sourceUrl,
-    license:       'CC BY-SA 4.0',
+    phrase: title, reading, meaning, category: appCategory,
+    source: 'Wikipedia 日本語版',
+    reference_url: `https://ja.wikipedia.org/wiki/${encodeURIComponent(title)}`,
+    license: 'CC BY-SA 4.0',
     content,
-    source_name:   'Wikipedia',
-    source_url:    `https://ja.wikipedia.org/wiki/${encodeURIComponent(title)}`,
+    source_name: 'Wikipedia',
+    source_url: `https://ja.wikipedia.org/wiki/${encodeURIComponent(title)}`,
   };
 }
 
+async function runCategoryTarget(target) {
+  console.log(`\n[${target.appCategory}] ${target.category} のページ一覧を取得中...`);
+  const titles = await getCategoryMembers(target.category, target.maxPages);
+  console.log(`  → ${titles.length} ページ`);
+  if (titles.length === 0) return [];
+  await sleep(RATE_MS);
+
+  const entries = [];
+  for (let i = 0; i < titles.length; i += BATCH_SIZE) {
+    const batch = titles.slice(i, i + BATCH_SIZE);
+    const pages  = await fetchExtracts(batch);
+    for (const { title, extract } of pages) {
+      const entry = parseEntry(title, extract, target.appCategory);
+      if (entry) entries.push(entry);
+    }
+    process.stdout.write(`\r  進捗: ${Math.min(i + BATCH_SIZE, titles.length)}/${titles.length} （有効: ${entries.length}件）`);
+    await sleep(RATE_MS);
+  }
+  console.log('');
+  return entries;
+}
+
+// -------------------------------------------------------
+// 方式 B: 一覧ページからタイトル・読みを抽出 → 個別記事で意味取得
+// -------------------------------------------------------
+
+async function fetchWikitext(page) {
+  const data = await get({ action: 'parse', page, prop: 'wikitext', formatversion: '2' });
+  if (data.error) throw new Error(data.error.info);
+  return data.parse.wikitext;
+}
+
+/** 一覧ページのウィキテキストから { title, reading } を抽出 */
+function extractTitlesFromList(wikitext) {
+  const results = [];
+  const seen = new Set();
+  for (const line of wikitext.split('\n')) {
+    const text = cleanText(line.replace(/^\*+/, ''));
+    // パターン: TERM（reading）
+    const m = text.match(/^([^\s（(【「]{1,20})[（(]([ぁ-ん]{1,20})[）)]/);
+    if (m) {
+      const title = m[1].trim();
+      const reading = m[2].trim();
+      if (!seen.has(title)) {
+        seen.add(title);
+        results.push({ title, reading });
+      }
+    }
+  }
+  return results;
+}
+
+async function runListPageTarget(target) {
+  console.log(`\n[${target.appCategory}] 一覧ページ「${target.page}」からタイトルを抽出中...`);
+  const wikitext = await fetchWikitext(target.page);
+  const items    = extractTitlesFromList(wikitext);
+  console.log(`  → ${items.length} タイトル抽出`);
+  if (items.length === 0) return [];
+  await sleep(RATE_MS);
+
+  const entries = [];
+  const titles  = items.map(i => i.title);
+  const readingMap = Object.fromEntries(items.map(i => [i.title, i.reading]));
+
+  for (let i = 0; i < titles.length; i += BATCH_SIZE) {
+    const batch = titles.slice(i, i + BATCH_SIZE);
+    const pages  = await fetchExtracts(batch);
+    for (const { title, extract } of pages) {
+      const cleaned = (extract || '').replace(/<[^>]+>/g, '').replace(/\[[^\]]*\]/g, '').trim();
+      if (cleaned.length < 5) continue;
+
+      // 読みは一覧ページから取得済み、意味は個別記事から抽出
+      const reading = readingMap[title] || null;
+      const isMatch = cleaned.match(/は[、,]\s*(.{5,150}?[。！？])/);
+      const firstSentence = cleaned.match(/^.{5,150}?[。！？]/);
+      const meaning = isMatch
+        ? isMatch[1].trim()
+        : firstSentence
+        ? firstSentence[0].trim()
+        : cleaned.slice(0, 100).trim() + (cleaned.length > 100 ? '…' : '');
+
+      if (!meaning || meaning.length < 5) continue;
+
+      const content = reading ? `${title}（${reading}）` : title;
+      if (content.length > 50) continue;
+
+      entries.push({
+        phrase: title, reading, meaning, category: target.appCategory,
+        source: 'Wikipedia 日本語版',
+        reference_url: `https://ja.wikipedia.org/wiki/${encodeURIComponent(title)}`,
+        license: 'CC BY-SA 4.0',
+        content,
+        source_name: 'Wikipedia',
+        source_url: `https://ja.wikipedia.org/wiki/${encodeURIComponent(title)}`,
+      });
+    }
+    process.stdout.write(`\r  進捗: ${Math.min(i + BATCH_SIZE, titles.length)}/${titles.length} （有効: ${entries.length}件）`);
+    await sleep(RATE_MS);
+  }
+  console.log('');
+  return entries;
+}
+
+// -------------------------------------------------------
+// メイン
+// -------------------------------------------------------
+
 async function main() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-
   const allEntries = [];
 
-  for (const target of TARGETS) {
-    console.log(`\n[${target.appCategory}] ${target.category} のページ一覧を取得中...`);
-    let titles;
+  // 方式 A
+  for (const target of CATEGORY_TARGETS) {
     try {
-      titles = await getCategoryMembers(target.category, target.maxPages);
-      console.log(`  → ${titles.length} ページ`);
+      const entries = await runCategoryTarget(target);
+      allEntries.push(...entries);
     } catch (err) {
-      console.error(`  カテゴリ取得失敗: ${err.message}`);
-      continue;
+      console.error(`  エラー: ${err.message}`);
     }
-    await sleep(RATE_MS);
+  }
 
-    // BATCH_SIZE 件ずつ extracts を取得
-    let fetched = 0;
-    for (let i = 0; i < titles.length; i += BATCH_SIZE) {
-      const batch = titles.slice(i, i + BATCH_SIZE);
-      try {
-        const pages = await fetchExtracts(batch);
-        for (const { title, extract } of pages) {
-          const sourceUrl = `https://ja.wikipedia.org/wiki/${encodeURIComponent(title)}`;
-          const entry = parseEntry(title, extract, target.appCategory, sourceUrl);
-          if (entry) {
-            allEntries.push(entry);
-            fetched++;
-          }
-        }
-        process.stdout.write(`\r  進捗: ${Math.min(i + BATCH_SIZE, titles.length)}/${titles.length} ページ処理済み（有効: ${fetched}件）`);
-      } catch (err) {
-        process.stdout.write(`\r  バッチエラー (${err.message})`);
-      }
-      await sleep(RATE_MS);
+  // 方式 B
+  for (const target of LIST_PAGE_TARGETS) {
+    try {
+      const entries = await runListPageTarget(target);
+      allEntries.push(...entries);
+    } catch (err) {
+      console.error(`  エラー: ${err.message}`);
     }
-    console.log('');
   }
 
   const output = {
     metadata: {
-      source:      'Wikipedia 日本語版',
-      fetched_at:  new Date().toISOString(),
-      license:     'CC BY-SA 4.0',
+      source: 'Wikipedia 日本語版',
+      fetched_at: new Date().toISOString(),
+      license: 'CC BY-SA 4.0',
       license_url: 'https://creativecommons.org/licenses/by-sa/4.0/deed.ja',
       attribution: '原著作者: ウィキペディア日本語版寄稿者',
-      count:       allEntries.length,
+      count: allEntries.length,
     },
     entries: allEntries,
   };
