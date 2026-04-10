@@ -25,6 +25,9 @@ dist/
 test-accounts.local.md
 scripts/seed-test-users.js
 
+# Supabase CLI cache
+supabase/.temp/
+
 # OS
 .DS_Store
 Thumbs.db
