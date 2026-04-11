@@ -28,6 +28,7 @@ const CATEGORY_TARGETS = [
   { category: 'Category:ことわざ', appCategory: 'ことわざ', maxPages: 400 },
   { category: 'Category:慣用句',   appCategory: '慣用句',   maxPages: 400 },
   { category: 'Category:名言',     appCategory: '名言・格言', maxPages: 200 },
+  { category: 'Category:格言',     appCategory: '名言・格言', maxPages: 200 },
 ];
 
 // --- 方式 B: 著名な四字熟語を直接フェッチ ---

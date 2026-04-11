@@ -7,12 +7,14 @@ const PAGE_SIZE = 20;
 interface TimelineRow {
   id: string;
   content: string;
+  meaning: string | null;
+  source_name: string | null;
   category: string;
   censor_status: 'safe' | 'grey' | 'banned';
   created_at: string;
-  profiles: { username: string; avatar_url: string | null } | null;
   appropriate_count: number;
   inappropriate_count: number;
+  profiles: { username: string; avatar_url: string | null } | null;
 }
 
 function rowToExpression(row: TimelineRow): Expression {
@@ -20,16 +22,19 @@ function rowToExpression(row: TimelineRow): Expression {
     id: row.id,
     user_id: '',
     content: row.content,
+    meaning: row.meaning ?? null,
+    source_name: row.source_name ?? null,
+    source_url: null,
     category: row.category as Category,
     censor_status: row.censor_status,
-    is_ai_checked: false,
+    is_ai_checked: true,
     visibility: true,
     created_at: row.created_at,
     profile: row.profiles
       ? { username: row.profiles.username, avatar_url: row.profiles.avatar_url }
       : undefined,
-    appropriate_count: row.appropriate_count,
-    inappropriate_count: row.inappropriate_count,
+    appropriate_count: row.appropriate_count ?? 0,
+    inappropriate_count: row.inappropriate_count ?? 0,
   };
 }
 
@@ -62,12 +67,14 @@ export function useTimeline({ category, keyword }: UseTimelineOptions = {}): Use
       .select(`
         id,
         content,
+        meaning,
+        source_name,
         category,
         censor_status,
         created_at,
-        profiles ( username, avatar_url ),
-        appropriate_count:votes!inner(count)...vote_type.eq.appropriate,
-        inappropriate_count:votes!inner(count)...vote_type.eq.inappropriate
+        appropriate_count,
+        inappropriate_count,
+        profiles ( username, avatar_url )
       `)
       .eq('visibility', true)
       .in('censor_status', ['safe', 'grey'])
