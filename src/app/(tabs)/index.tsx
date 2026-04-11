@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
-import { FlatList, ActivityIndicator, RefreshControl, View, useWindowDimensions } from 'react-native';
+import { FlatList, ActivityIndicator, RefreshControl, View, Platform, useWindowDimensions } from 'react-native';
 import { router, Redirect } from 'expo-router';
 import { Button, Text, YStack, XStack, Input, ScrollView, Spinner, Theme } from 'tamagui';
 import { supabase } from '../../lib/supabase';
@@ -15,11 +15,13 @@ const CATEGORIES: Array<Category | null> = [null, '四字熟語', '慣用句', '
 const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 520;
 const SIDEBAR_DEFAULT = 300;
+const IS_WEB = Platform.OS === 'web';
 
 export default function TimelineScreen() {
   const { user, session, loading: authLoading } = useAuth();
   const { width } = useWindowDimensions();
-  const isWide = width >= 768;
+  // ネイティブは常にモバイルレイアウト（横向きスマホ誤作動防止・sticky/calc非対応回避）
+  const isWide = IS_WEB && width >= 768;
 
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [keyword, setKeyword] = useState('');
@@ -184,20 +186,18 @@ export default function TimelineScreen() {
         <XStack flex={1} padding={16} gap={0}>
           {/* タイムライン（ダーク・角丸） */}
           <Theme name="dark">
-            <YStack flex={1} backgroundColor="#1C1C1E" borderRadius={12}
-              // @ts-ignore
-              style={{ overflow: 'hidden' }}>
+            <YStack flex={1} backgroundColor="#1C1C1E" borderRadius={12} overflow="hidden">
               {timelineContent}
             </YStack>
           </Theme>
 
-          {/* ドラッグハンドル */}
+          {/* ドラッグハンドル (web only) */}
           <View
             // @ts-ignore
             onMouseDown={startResize}
             style={{
               width: 12,
-              cursor: 'col-resize',
+              cursor: 'col-resize',   // web only: native では silently ignored
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
@@ -220,13 +220,13 @@ export default function TimelineScreen() {
             borderRadius={12}
             padding="$4"
             flexShrink={0}
-            // @ts-ignore
+            // @ts-ignore: web-only sticky layout
             style={{
-              position: 'sticky',
+              position: 'sticky',          // web only
               top: 16,
               alignSelf: 'flex-start',
-              maxHeight: 'calc(100vh - 88px)',
-              overflowY: 'auto',
+              maxHeight: 'calc(100vh - 88px)', // web only (calc は native 非対応)
+              overflowY: 'auto',           // web only
             }}
           >
             <DailySectionVertical />

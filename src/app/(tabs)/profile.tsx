@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Alert, FlatList, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { Alert, FlatList, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { Redirect } from 'expo-router';
 import { Button, Input, Text, YStack, XStack, Avatar, Spinner, TextArea, Select, Card } from 'tamagui';
 import { Ionicons } from '@expo/vector-icons';
@@ -138,7 +138,7 @@ function MyPostCard({
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { width } = useWindowDimensions();
-  const isWide = width >= 768;
+  const isWide = Platform.OS === 'web' && width >= 768;
   const [activeTab, setActiveTab] = useState<Tab>('settings');
 
   // プロフィール設定
@@ -371,8 +371,7 @@ export default function ProfileScreen() {
             maxWidth={860}
             backgroundColor="white"
             borderRadius={12}
-            // @ts-ignore
-            style={{ overflow: 'hidden' }}
+            overflow="hidden"
           >
             {profileContent}
           </YStack>
