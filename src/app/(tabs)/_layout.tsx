@@ -10,13 +10,13 @@ export default function TabLayout() {
         tabBarActiveTintColor: '#BC002D',
         tabBarInactiveTintColor: '#aaa',
         tabBarStyle: { borderTopColor: '#FFD0DC', borderTopWidth: 1 },
-        headerShown: false,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'タイムライン',
+          headerShown: false,
           tabBarIcon: ({ color }) => <Feather name="home" size={24} color={color} />,
         }}
       />
@@ -24,6 +24,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'プロフィール',
+          headerShown: false,
           tabBarIcon: ({ color }) => <Feather name="user" size={24} color={color} />,
         }}
       />

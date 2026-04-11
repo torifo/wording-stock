@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Alert, FlatList, ActivityIndicator } from 'react-native';
+import { Alert, FlatList, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Redirect } from 'expo-router';
 import { Button, Input, Text, YStack, XStack, Avatar, Spinner, TextArea, Select, Card } from 'tamagui';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,6 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useMyPosts } from '../../hooks/useMyPosts';
 import { useFavorites } from '../../hooks/useFavorites';
-import { MaxWidth } from '../../components/MaxWidth';
 import { ExpressionCard } from '../../components/ExpressionCard';
 import type { Profile, Category, Expression } from '../../types';
 
@@ -138,6 +137,8 @@ function MyPostCard({
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 768;
   const [activeTab, setActiveTab] = useState<Tab>('settings');
 
   // プロフィール設定
@@ -223,11 +224,11 @@ export default function ProfileScreen() {
     onPress: () => setActiveTab(tab),
   } as const);
 
-  return (
-    <YStack flex={1} backgroundColor="$background">
-      <MaxWidth>
-        {/* タブバー */}
-        <XStack borderBottomWidth={1} borderBottomColor="#BC002D">
+  // ── プロフィールコンテンツ（タブ含む） ──────────────────────────────────
+  const profileContent = (
+    <YStack flex={1}>
+      {/* タブバー */}
+      <XStack borderBottomWidth={1} borderBottomColor="#BC002D">
           <Button {...tabStyle('settings')}>設定</Button>
           <Button {...tabStyle('posts')}>投稿履歴</Button>
           <Button {...tabStyle('favorites')}>お気に入り</Button>
@@ -341,7 +342,49 @@ export default function ProfileScreen() {
             />
           )
         )}
-      </MaxWidth>
+    </YStack>
+  );
+
+  // ── PC レイアウト ────────────────────────────────────────────────────────
+  if (isWide) {
+    return (
+      <YStack flex={1} backgroundColor="#FFF5F7">
+        {/* ヘッダー */}
+        <XStack
+          height={56}
+          paddingHorizontal={24}
+          alignItems="center"
+          backgroundColor="white"
+          borderBottomWidth={1}
+          borderBottomColor="#FFD0DC"
+        >
+          <Text fontSize={22} fontWeight="800" color="#BC002D" letterSpacing={-0.5}>
+            Wording Stock
+          </Text>
+        </XStack>
+
+        {/* コンテンツ：中央寄せカード */}
+        <YStack flex={1} padding={16} alignItems="center">
+          <YStack
+            flex={1}
+            width="100%"
+            maxWidth={860}
+            backgroundColor="white"
+            borderRadius={12}
+            // @ts-ignore
+            style={{ overflow: 'hidden' }}
+          >
+            {profileContent}
+          </YStack>
+        </YStack>
+      </YStack>
+    );
+  }
+
+  // ── モバイル レイアウト ──────────────────────────────────────────────────
+  return (
+    <YStack flex={1} backgroundColor="$background">
+      {profileContent}
     </YStack>
   );
 }
