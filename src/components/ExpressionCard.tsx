@@ -8,6 +8,7 @@ import type { Expression } from '../types';
 interface Props {
   expression: Expression;
   onBookmarkToggle?: (id: string, newState: boolean) => void;
+  hideVoteCount?: boolean;
 }
 
 function formatDate(iso: string): string {
@@ -15,7 +16,7 @@ function formatDate(iso: string): string {
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-export function ExpressionCard({ expression, onBookmarkToggle }: Props) {
+export function ExpressionCard({ expression, onBookmarkToggle, hideVoteCount = false }: Props) {
   const [showMeaning, setShowMeaning] = useState(false);
   const [isFav, setIsFav] = useState(expression.isFavorited ?? false);
   const [showProfile, setShowProfile] = useState(false);
@@ -174,6 +175,7 @@ export function ExpressionCard({ expression, onBookmarkToggle }: Props) {
         expressionId={expression.id}
         appropriateCount={expression.appropriate_count ?? 0}
         iLiked={expression.iLiked}
+        showCount={!hideVoteCount}
       />
     </Card>
   );

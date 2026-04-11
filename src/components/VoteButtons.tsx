@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { router } from 'expo-router';
 import { Button, Text, XStack } from 'tamagui';
 import { Ionicons } from '@expo/vector-icons';
 import { useVote } from '../hooks/useVote';
 import { useAuth } from '../context/AuthContext';
+
+const DEBOUNCE_MS = 600; // 連打防止 (人間の操作速度では気にならない範囲)
 
 interface Props {
   expressionId: string;
@@ -11,15 +13,22 @@ interface Props {
   inappropriateCount?: number;
   userVote?: 'appropriate' | 'inappropriate' | null;
   iLiked?: boolean;
+  showCount?: boolean;
 }
 
-export function VoteButtons({ expressionId, appropriateCount, iLiked }: Props) {
+export function VoteButtons({ expressionId, appropriateCount, iLiked, showCount = true }: Props) {
   const { user } = useAuth();
   const { voting, vote, unlike } = useVote();
   const [liked, setLiked] = useState(iLiked ?? false);
   const [count, setCount] = useState(appropriateCount);
+  const lastActionAt = useRef<number>(0);
 
   async function handleLike() {
+    // 連打 DoS 防止: 前回操作から DEBOUNCE_MS 未満は無視
+    const now = Date.now();
+    if (now - lastActionAt.current < DEBOUNCE_MS) return;
+    lastActionAt.current = now;
+
     if (!user) { router.push('/auth/login'); return; }
     if (voting) return;
 
@@ -50,7 +59,7 @@ export function VoteButtons({ expressionId, appropriateCount, iLiked }: Props) {
             color={liked ? 'white' : '#BC002D'}
           />
           <Text fontSize="$2" color={liked ? 'white' : '#BC002D'}>
-            いいね {count > 0 ? count : ''}
+            {showCount && count > 0 ? `いいね ${count}` : 'いいね'}
           </Text>
         </XStack>
       </Button>

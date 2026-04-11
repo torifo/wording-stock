@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { FlatList, ActivityIndicator, RefreshControl, View, Platform, useWindowDimensions } from 'react-native';
 import { router, Redirect } from 'expo-router';
-import { Button, Text, YStack, XStack, Input, ScrollView, Spinner, Theme } from 'tamagui';
+import { Button, Text, YStack, XStack, Input, ScrollView, Spinner } from 'tamagui';
 import { supabase } from '../../lib/supabase';
 import { ExpressionCard } from '../../components/ExpressionCard';
 import { DailySectionHorizontal, DailySectionVertical } from '../../components/DailySection';
@@ -95,14 +95,14 @@ export default function TimelineScreen() {
   const timelineContent = (
     <YStack flex={1}>
       {/* 検索バー */}
-      <XStack padding="$2" gap="$2" backgroundColor="$background" zIndex={10}>
+      <XStack padding="$2" gap="$2" backgroundColor="#FFE8EE" zIndex={10}>
         <Input flex={1} placeholder="キーワード検索..." value={searchInput}
           onChangeText={setSearchInput} onSubmitEditing={handleSearch} />
         <Button size="$3" backgroundColor="#BC002D" color="white" onPress={handleSearch}>検索</Button>
       </XStack>
 
       {/* カテゴリフィルター */}
-      <XStack backgroundColor="$background" zIndex={10} paddingBottom="$1"
+      <XStack backgroundColor="#FFE8EE" zIndex={10} paddingBottom="$1"
         borderBottomWidth={1} borderBottomColor="$borderColor">
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 8, paddingVertical: 4, gap: 6 }}>
@@ -123,7 +123,7 @@ export default function TimelineScreen() {
 
       {/* 投稿ボタン */}
       {user && (
-        <XStack justifyContent="flex-end" paddingHorizontal="$3" paddingVertical="$1" backgroundColor="$background">
+        <XStack justifyContent="flex-end" paddingHorizontal="$3" paddingVertical="$1" backgroundColor="#FFE8EE">
           <Button size="$3" backgroundColor="#BC002D" color="white"
             pressStyle={{ opacity: 0.8 }} onPress={() => router.push('/post')}>
             ＋ 投稿する
@@ -145,7 +145,7 @@ export default function TimelineScreen() {
           data={expressionsWithMeta}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <ExpressionCard expression={item} onBookmarkToggle={handleBookmarkToggle} />
+            <ExpressionCard expression={item} onBookmarkToggle={handleBookmarkToggle} hideVoteCount />
           )}
           contentContainerStyle={{ padding: 12 }}
           onEndReached={fetchMore}
@@ -184,12 +184,10 @@ export default function TimelineScreen() {
 
         {/* ── コンテンツエリア（余白付き） ── */}
         <XStack flex={1} padding={16} gap={0}>
-          {/* タイムライン（ダーク・角丸） */}
-          <Theme name="dark">
-            <YStack flex={1} backgroundColor="#1C1C1E" borderRadius={12} overflow="hidden">
-              {timelineContent}
-            </YStack>
-          </Theme>
+          {/* タイムライン（中間カラー・角丸） */}
+          <YStack flex={1} backgroundColor="#FFE8EE" borderRadius={12} overflow="hidden">
+            {timelineContent}
+          </YStack>
 
           {/* ドラッグハンドル (web only) */}
           <View
@@ -239,7 +237,7 @@ export default function TimelineScreen() {
   // ── モバイル: 通常レイアウト ────────────────────────────────────────────
 
   return (
-    <YStack flex={1} backgroundColor="$background">
+    <YStack flex={1} backgroundColor="#FFE8EE">
       {timelineContent}
     </YStack>
   );
