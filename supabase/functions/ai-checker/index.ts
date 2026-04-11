@@ -1,26 +1,26 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+/**
+ * ai-checker Edge Function
+ *
+ * is_ai_checked = false の表現をバッチで取得し、モデレーション判定を行う。
+ * 判定結果（safe / grey / banned）を censor_status に書き込む。
+ *
+ * プロバイダーの切り替え:
+ *   Supabase Dashboard → Edge Functions → Secrets で設定
+ *   MODERATION_PROVIDER = hf_toxic_bert | hf_multilingual | openai | perspective | llm_judge
+ *
+ * 詳細は supabase/functions/ai-checker/classifiers.ts を参照
+ */
 
-const BATCH_SIZE = 50;
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getClassifier, type CensorStatus } from './classifiers.ts';
+
+const BATCH_SIZE  = 50;
 const INTERVAL_MS = 200;
 const MAX_RETRIES = 3;
-
-// toxic スコアの閾値
-// 0.0〜0.4 : safe
-// 0.4〜0.7 : grey（ユーザー投票に委ねる）
-// 0.7〜1.0 : banned
-const GREY_THRESHOLD = 0.4;
-const BANNED_THRESHOLD = 0.7;
-
-type CensorStatus = 'safe' | 'grey' | 'banned';
 
 interface Expression {
   id: string;
   content: string;
-}
-
-interface HfClassificationResult {
-  label: string;
-  score: number;
 }
 
 Deno.serve(async (_req: Request): Promise<Response> => {
@@ -29,6 +29,19 @@ Deno.serve(async (_req: Request): Promise<Response> => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
+  // 使用プロバイダーをログ出力
+  const provider = Deno.env.get('MODERATION_PROVIDER') ?? 'hf_toxic_bert';
+  console.log(`Moderation provider: ${provider}`);
+
+  let classify: (content: string) => Promise<CensorStatus>;
+  try {
+    classify = getClassifier();
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: msg }), { status: 400 });
+  }
+
+  // 未チェックの表現を取得
   const { data: expressions, error: fetchError } = await supabase
     .from('expressions')
     .select('id, content')
@@ -42,7 +55,10 @@ Deno.serve(async (_req: Request): Promise<Response> => {
   }
 
   const batch = (expressions ?? []) as Expression[];
-  console.log(`Processing ${batch.length} expressions`);
+  console.log(`Processing ${batch.length} expressions with [${provider}]`);
+
+  let processed = 0;
+  let failed    = 0;
 
   for (const expr of batch) {
     let censorStatus: CensorStatus = 'safe';
@@ -57,7 +73,10 @@ Deno.serve(async (_req: Request): Promise<Response> => {
         const status = (err as { status?: number }).status;
         if (status === 429) {
           console.warn('Rate limit hit, stopping batch');
-          return new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 });
+          return new Response(
+            JSON.stringify({ error: 'rate limited', processed }),
+            { status: 429 },
+          );
         }
         const backoff = INTERVAL_MS * Math.pow(2, attempt);
         console.warn(`Retry ${attempt + 1} for ${expr.id} after ${backoff}ms`);
@@ -73,66 +92,23 @@ Deno.serve(async (_req: Request): Promise<Response> => {
 
       if (updateError) {
         console.error(`Failed to update ${expr.id}:`, updateError);
+        failed++;
+      } else {
+        processed++;
       }
     } else {
-      console.error(`Failed after ${MAX_RETRIES} retries: ${expr.id}`);
+      console.error(`Gave up after ${MAX_RETRIES} retries: ${expr.id}`);
+      failed++;
     }
 
     await sleep(INTERVAL_MS);
   }
 
-  return new Response(JSON.stringify({ processed: batch.length }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
-});
-
-/**
- * Hugging Face Inference API（unitary/toxic-bert）で有害度を判定する
- *
- * toxic スコアで 3 段階に分類：
- *   0.0〜0.4 → safe
- *   0.4〜0.7 → grey
- *   0.7〜1.0 → banned
- *
- * 環境変数 HF_API_TOKEN に Hugging Face の無料アクセストークンを設定すること
- */
-async function classify(content: string): Promise<CensorStatus> {
-  const token = Deno.env.get('HF_API_TOKEN');
-  if (!token) {
-    throw new Error('HF_API_TOKEN is not set');
-  }
-
-  const response = await fetch(
-    'https://api-inference.huggingface.co/models/unitary/toxic-bert',
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ inputs: content }),
-    },
+  return new Response(
+    JSON.stringify({ provider, processed, failed, total: batch.length }),
+    { headers: { 'Content-Type': 'application/json' } },
   );
-
-  if (response.status === 429) {
-    const err = new Error('Rate limited') as Error & { status: number };
-    err.status = 429;
-    throw err;
-  }
-
-  if (!response.ok) {
-    throw new Error(`HF API error: ${response.status}`);
-  }
-
-  // レスポンス例: [[{ label: "toxic", score: 0.95 }, { label: "non_toxic", score: 0.05 }]]
-  const json = await response.json() as HfClassificationResult[][];
-  const results = json[0] ?? [];
-  const toxicScore = results.find((r) => r.label === 'toxic')?.score ?? 0;
-
-  if (toxicScore >= BANNED_THRESHOLD) return 'banned';
-  if (toxicScore >= GREY_THRESHOLD) return 'grey';
-  return 'safe';
-}
+});
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
