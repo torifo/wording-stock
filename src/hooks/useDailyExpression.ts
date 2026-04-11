@@ -17,7 +17,9 @@ export interface DailyExpression {
  * 日付が変わるまで同じ表現が返り、日付が変わると自動的に次の表現に切り替わる。
  */
 function getDailyOffset(total: number, category: string): number {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  // ローカル日付を使用（UTC だと JST 深夜0時が前日扱いになるため）
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const seed = today + category;
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
