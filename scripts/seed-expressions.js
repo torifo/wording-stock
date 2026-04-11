@@ -140,7 +140,8 @@ async function main() {
     // content が "term（reading）\nmeaning" 形式の場合は分離する
     const parts = e.content.split('\n');
     const word    = parts[0].trim();
-    const meaning = e.meaning || (parts.length > 1 ? parts.slice(1).join('\n').trim() : null);
+    const rawMeaning = e.meaning || (parts.length > 1 ? parts.slice(1).join('\n').trim() : null);
+    const meaning = rawMeaning && rawMeaning.length > 500 ? rawMeaning.slice(0, 497) + '…' : rawMeaning;
     return {
       user_id:       systemUserId,
       content:       word,
