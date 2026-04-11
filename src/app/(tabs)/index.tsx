@@ -4,6 +4,7 @@ import { router, Redirect } from 'expo-router';
 import { Button, Text, YStack, XStack, Input, ScrollView, Spinner } from 'tamagui';
 import { useState } from 'react';
 import { ExpressionCard } from '../../components/ExpressionCard';
+import { DailySection } from '../../components/DailySection';
 import { useTimeline } from '../../hooks/useTimeline';
 import { useAuth } from '../../context/AuthContext';
 import type { Category } from '../../types';
@@ -111,6 +112,7 @@ export default function TimelineScreen() {
           refreshControl={
             <RefreshControl refreshing={loading} onRefresh={fetch} />
           }
+          ListHeaderComponent={<DailySection />}
           ListEmptyComponent={
             <YStack alignItems="center" padding="$6">
               <Text color="$gray10">該当する表現が見つかりませんでした</Text>
