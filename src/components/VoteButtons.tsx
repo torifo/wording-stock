@@ -1,72 +1,51 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { Button, Text, XStack } from 'tamagui';
+import { Ionicons } from '@expo/vector-icons';
 import { useVote } from '../hooks/useVote';
 import { useAuth } from '../context/AuthContext';
-import type { VoteType } from '../types';
 
 interface Props {
   expressionId: string;
   appropriateCount: number;
-  inappropriateCount: number;
-  userVote?: VoteType | null;
+  inappropriateCount?: number; // 表示しないが型互換のため残す
+  userVote?: 'appropriate' | 'inappropriate' | null;
 }
 
-export function VoteButtons({
-  expressionId,
-  appropriateCount,
-  inappropriateCount,
-  userVote: initialUserVote = null,
-}: Props) {
+export function VoteButtons({ expressionId, appropriateCount, userVote: initialUserVote = null }: Props) {
   const { user } = useAuth();
   const { voting, vote } = useVote();
-  const [userVote, setUserVote] = useState<VoteType | null>(initialUserVote);
-  const [counts, setCounts] = useState({
-    appropriate: appropriateCount,
-    inappropriate: inappropriateCount,
-  });
+  const [liked, setLiked]   = useState(initialUserVote === 'appropriate');
+  const [count, setCount]   = useState(appropriateCount);
 
-  async function handleVote(voteType: VoteType) {
-    if (!user) {
-      router.push('/auth/login');
-      return;
-    }
-    if (userVote !== null) return;
-
-    const success = await vote(expressionId, voteType, user.id);
-    if (success) {
-      setUserVote(voteType);
-      setCounts((prev) => ({
-        ...prev,
-        [voteType]: prev[voteType] + 1,
-      }));
-    }
+  async function handleLike() {
+    if (!user) { router.push('/auth/login'); return; }
+    if (liked || voting) return;
+    const success = await vote(expressionId, 'appropriate', user.id);
+    if (success) { setLiked(true); setCount((n) => n + 1); }
   }
 
-  const voted = userVote !== null;
-
   return (
-    <XStack gap="$2">
+    <XStack gap="$2" alignItems="center">
       <Button
         size="$2"
-        onPress={() => handleVote('appropriate')}
-        disabled={voted || voting}
-        variant={userVote === 'appropriate' ? undefined : 'outlined'}
-        theme={userVote === 'appropriate' ? 'green' : undefined}
+        onPress={handleLike}
+        disabled={liked || voting}
+        backgroundColor={liked ? '#BC002D' : 'transparent'}
+        borderWidth={1}
+        borderColor="#BC002D"
+        pressStyle={{ opacity: 0.7 }}
       >
-        <Text>👍 {counts.appropriate}</Text>
-        {voted && userVote !== 'appropriate' && <Text fontSize="$1"> 投票済み</Text>}
-      </Button>
-
-      <Button
-        size="$2"
-        onPress={() => handleVote('inappropriate')}
-        disabled={voted || voting}
-        variant={userVote === 'inappropriate' ? undefined : 'outlined'}
-        theme={userVote === 'inappropriate' ? 'red' : undefined}
-      >
-        <Text>👎 {counts.inappropriate}</Text>
-        {voted && userVote !== 'inappropriate' && <Text fontSize="$1"> 投票済み</Text>}
+        <XStack alignItems="center" gap="$1">
+          <Ionicons
+            name={liked ? 'heart' : 'heart-outline'}
+            size={14}
+            color={liked ? 'white' : '#BC002D'}
+          />
+          <Text fontSize="$2" color={liked ? 'white' : '#BC002D'}>
+            いいね {count > 0 ? count : ''}
+          </Text>
+        </XStack>
       </Button>
     </XStack>
   );
