@@ -6,6 +6,7 @@ interface UseVoteResult {
   voting: boolean;
   error: string;
   vote: (expressionId: string, voteType: VoteType, userId: string) => Promise<boolean>;
+  unlike: (expressionId: string, userId: string) => Promise<boolean>;
 }
 
 export function useVote(): UseVoteResult {
@@ -29,7 +30,6 @@ export function useVote(): UseVoteResult {
     setVoting(false);
 
     if (insertError) {
-      // 重複投票エラー（unique 制約違反）は無視してフロントの状態で対応
       if (insertError.code !== '23505') {
         setError(insertError.message);
       }
@@ -39,5 +39,26 @@ export function useVote(): UseVoteResult {
     return true;
   }
 
-  return { voting, error, vote };
+  async function unlike(expressionId: string, userId: string): Promise<boolean> {
+    setVoting(true);
+    setError('');
+
+    const { error: deleteError } = await supabase
+      .from('votes')
+      .delete()
+      .eq('expression_id', expressionId)
+      .eq('user_id', userId)
+      .eq('vote_type', 'appropriate');
+
+    setVoting(false);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return false;
+    }
+
+    return true;
+  }
+
+  return { voting, error, vote, unlike };
 }

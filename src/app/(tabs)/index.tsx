@@ -1,8 +1,8 @@
-import { useEffect, useCallback } from 'react';
-import { FlatList, ActivityIndicator, RefreshControl, Platform } from 'react-native';
+import { useEffect, useCallback, useState } from 'react';
+import { FlatList, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
 import { router, Redirect } from 'expo-router';
-import { Button, Text, YStack, XStack, Input, ScrollView, Spinner } from 'tamagui';
-import { useState } from 'react';
+import { Button, Text, YStack, XStack, Input, ScrollView, Spinner, Theme } from 'tamagui';
+import { supabase } from '../../lib/supabase';
 import { ExpressionCard } from '../../components/ExpressionCard';
 import { DailySectionHorizontal, DailySectionVertical } from '../../components/DailySection';
 import { useTimeline } from '../../hooks/useTimeline';
@@ -11,13 +11,16 @@ import { useAuth } from '../../context/AuthContext';
 import type { Category } from '../../types';
 
 const CATEGORIES: Array<Category | null> = [null, '四字熟語', '慣用句', 'ことわざ', '名言・格言', '詩・俳句', 'その他'];
-const IS_WEB = Platform.OS === 'web';
 
 export default function TimelineScreen() {
   const { user, session, loading: authLoading } = useAuth();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 768;
+
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [keyword, setKeyword] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
   const { expressions, loading, loadingMore, error, fetch, fetchMore } = useTimeline({
     category: selectedCategory,
@@ -25,9 +28,19 @@ export default function TimelineScreen() {
   });
   const { favoriteIds, fetchIds, toggle } = useFavorites(user?.id);
 
+  const fetchLikedIds = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('votes')
+      .select('expression_id')
+      .eq('user_id', user.id)
+      .eq('vote_type', 'appropriate');
+    setLikedIds(new Set((data ?? []).map((r: any) => r.expression_id)));
+  }, [user]);
+
   useEffect(() => {
-    if (session) { fetch(); fetchIds(); }
-  }, [fetch, fetchIds, session]);
+    if (session) { fetch(); fetchIds(); fetchLikedIds(); }
+  }, [fetch, fetchIds, fetchLikedIds, session]);
 
   const handleBookmarkToggle = useCallback(async (id: string) => {
     await toggle(id);
@@ -40,7 +53,11 @@ export default function TimelineScreen() {
   }
   if (!session) return <Redirect href="/auth/login" />;
 
-  const expressionsWithFav = expressions.map((e) => ({ ...e, isFavorited: favoriteIds.has(e.id) }));
+  const expressionsWithMeta = expressions.map((e) => ({
+    ...e,
+    isFavorited: favoriteIds.has(e.id),
+    iLiked: likedIds.has(e.id),
+  }));
 
   // ── タイムライン本体 ─────────────────────────────────────────────────────
 
@@ -94,7 +111,7 @@ export default function TimelineScreen() {
         </YStack>
       ) : (
         <FlatList
-          data={expressionsWithFav}
+          data={expressionsWithMeta}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <ExpressionCard expression={item} onBookmarkToggle={handleBookmarkToggle} />
@@ -103,8 +120,7 @@ export default function TimelineScreen() {
           onEndReached={fetchMore}
           onEndReachedThreshold={0.5}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={fetch} tintColor="#BC002D" />}
-          // モバイルのみ ListHeaderComponent として今日の表現を表示
-          ListHeaderComponent={IS_WEB ? null : <DailySectionHorizontal />}
+          ListHeaderComponent={isWide ? null : <DailySectionHorizontal />}
           ListEmptyComponent={
             <YStack alignItems="center" padding="$6">
               <Text color="$gray10">該当する表現が見つかりませんでした</Text>
@@ -116,22 +132,25 @@ export default function TimelineScreen() {
     </YStack>
   );
 
-  // ── PC: サイドバーレイアウト ────────────────────────────────────────────
+  // ── PC / 広い画面: サイドバーレイアウト + ナイトモード ─────────────────
 
-  if (IS_WEB) {
+  if (isWide) {
     return (
-      <XStack flex={1} backgroundColor="$background" justifyContent="center">
-        {/* タイムライン（中央） */}
-        <YStack flex={1} maxWidth={680}>
-          {timelineContent}
-        </YStack>
+      <XStack flex={1} backgroundColor="#FFF5F7" justifyContent="center">
+        {/* タイムライン（中央・ダークモード） */}
+        <Theme name="dark">
+          <YStack flex={1} maxWidth={680} backgroundColor="#1C1C1E">
+            {timelineContent}
+          </YStack>
+        </Theme>
 
-        {/* 今日の表現（右サイドバー） */}
+        {/* 今日の表現（右サイドバー・ライト） */}
         <YStack
-          width={240}
-          padding="$3"
+          width={280}
+          padding="$4"
           borderLeftWidth={1}
-          borderLeftColor="#eee"
+          borderLeftColor="#FFD0DC"
+          backgroundColor="white"
           // @ts-ignore: web sticky
           style={{ position: 'sticky', top: 0, alignSelf: 'flex-start', maxHeight: '100vh', overflowY: 'auto' }}
         >

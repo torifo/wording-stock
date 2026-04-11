@@ -8,21 +8,28 @@ import { useAuth } from '../context/AuthContext';
 interface Props {
   expressionId: string;
   appropriateCount: number;
-  inappropriateCount?: number; // 表示しないが型互換のため残す
+  inappropriateCount?: number;
   userVote?: 'appropriate' | 'inappropriate' | null;
+  iLiked?: boolean;
 }
 
-export function VoteButtons({ expressionId, appropriateCount, userVote: initialUserVote = null }: Props) {
+export function VoteButtons({ expressionId, appropriateCount, iLiked }: Props) {
   const { user } = useAuth();
-  const { voting, vote } = useVote();
-  const [liked, setLiked]   = useState(initialUserVote === 'appropriate');
-  const [count, setCount]   = useState(appropriateCount);
+  const { voting, vote, unlike } = useVote();
+  const [liked, setLiked] = useState(iLiked ?? false);
+  const [count, setCount] = useState(appropriateCount);
 
   async function handleLike() {
     if (!user) { router.push('/auth/login'); return; }
-    if (liked || voting) return;
-    const success = await vote(expressionId, 'appropriate', user.id);
-    if (success) { setLiked(true); setCount((n) => n + 1); }
+    if (voting) return;
+
+    if (liked) {
+      const success = await unlike(expressionId, user.id);
+      if (success) { setLiked(false); setCount((n) => Math.max(0, n - 1)); }
+    } else {
+      const success = await vote(expressionId, 'appropriate', user.id);
+      if (success) { setLiked(true); setCount((n) => n + 1); }
+    }
   }
 
   return (
@@ -30,7 +37,7 @@ export function VoteButtons({ expressionId, appropriateCount, userVote: initialU
       <Button
         size="$2"
         onPress={handleLike}
-        disabled={liked || voting}
+        disabled={voting}
         backgroundColor={liked ? '#BC002D' : 'transparent'}
         borderWidth={1}
         borderColor="#BC002D"

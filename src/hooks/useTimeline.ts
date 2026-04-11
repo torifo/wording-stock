@@ -14,7 +14,7 @@ interface TimelineRow {
   created_at: string;
   appropriate_count: number;
   inappropriate_count: number;
-  profiles: { username: string; avatar_url: string | null } | null;
+  profiles: { username: string; avatar_url: string | null; favorite_expression: string | null } | null;
 }
 
 function rowToExpression(row: TimelineRow): Expression {
@@ -31,7 +31,7 @@ function rowToExpression(row: TimelineRow): Expression {
     visibility: true,
     created_at: row.created_at,
     profile: row.profiles
-      ? { username: row.profiles.username, avatar_url: row.profiles.avatar_url }
+      ? { username: row.profiles.username, avatar_url: row.profiles.avatar_url, favorite_expression: row.profiles.favorite_expression }
       : undefined,
     appropriate_count: row.appropriate_count ?? 0,
     inappropriate_count: row.inappropriate_count ?? 0,
@@ -74,7 +74,7 @@ export function useTimeline({ category, keyword }: UseTimelineOptions = {}): Use
         created_at,
         appropriate_count,
         inappropriate_count,
-        profiles ( username, avatar_url )
+        profiles ( username, avatar_url, favorite_expression )
       `)
       .eq('visibility', true)
       .in('censor_status', ['safe', 'grey'])

@@ -40,10 +40,10 @@ function DailyCard({ item, vertical }: { item: DailyExpression; vertical?: boole
 
         {/* 表現本文 */}
         <Text
-          fontSize={vertical ? '$4' : '$5'}
+          fontSize={vertical ? '$6' : '$5'}
           fontWeight="800"
           letterSpacing={-0.5}
-          numberOfLines={2}
+          numberOfLines={vertical ? undefined : 2}
           color="#111"
         >
           {item.content}
@@ -58,7 +58,7 @@ function DailyCard({ item, vertical }: { item: DailyExpression; vertical?: boole
             </XStack>
           ) : (
             <YStack marginTop="$1" gap="$1">
-              <Text fontSize="$2" color="#444" lineHeight={18} numberOfLines={vertical ? undefined : 3}>
+              <Text fontSize={vertical ? '$3' : '$2'} color="#444" lineHeight={vertical ? 22 : 18} numberOfLines={vertical ? undefined : 3}>
                 {item.meaning}
               </Text>
               {item.source_name && (

@@ -32,10 +32,11 @@ export interface Expression {
   source_name: string | null;
   source_url: string | null;
   // JOIN フィールド
-  profile?: Pick<Profile, 'username' | 'avatar_url'>;
+  profile?: Pick<Profile, 'username' | 'avatar_url' | 'favorite_expression'>;
   appropriate_count?: number;
   inappropriate_count?: number;
   isFavorited?: boolean;
+  iLiked?: boolean;
 }
 
 export interface Vote {
