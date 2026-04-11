@@ -137,16 +137,16 @@ export default function TimelineScreen() {
   if (isWide) {
     return (
       <XStack flex={1} backgroundColor="#FFF5F7" justifyContent="center">
-        {/* タイムライン（中央・ダークモード） */}
+        {/* タイムライン（左側全幅・ダークモード） */}
         <Theme name="dark">
-          <YStack flex={1} maxWidth={680} backgroundColor="#1C1C1E">
+          <YStack flex={1} backgroundColor="#1C1C1E">
             {timelineContent}
           </YStack>
         </Theme>
 
         {/* 今日の表現（右サイドバー・ライト） */}
         <YStack
-          width={280}
+          width={320}
           padding="$4"
           borderLeftWidth={1}
           borderLeftColor="#FFD0DC"

@@ -5,7 +5,7 @@ import { AuthProvider } from '../context/AuthContext';
 
 export default function RootLayout() {
   return (
-    <TamaguiProvider config={tamaguiConfig}>
+    <TamaguiProvider config={tamaguiConfig} defaultTheme="light">
       <AuthProvider>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

@@ -5,7 +5,14 @@ import { Feather } from '@expo/vector-icons';
 // レイアウトは常に <Tabs> を返す（Expo Router の要件）
 export default function TabLayout() {
   return (
-    <Tabs>
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: '#BC002D',
+        tabBarInactiveTintColor: '#aaa',
+        tabBarStyle: { borderTopColor: '#FFD0DC', borderTopWidth: 1 },
+        headerShown: false,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{

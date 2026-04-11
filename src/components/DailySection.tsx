@@ -25,22 +25,27 @@ function DailyCard({ item, vertical }: { item: DailyExpression; vertical?: boole
       borderWidth={1}
       borderColor={color}
       borderRadius="$3"
-      padding="$3"
-      marginBottom={vertical ? '$2' : undefined}
+      padding={vertical ? '$4' : '$3'}
+      marginBottom={vertical ? '$3' : undefined}
       marginRight={vertical ? undefined : '$2'}
       width={vertical ? '100%' : 200}
       pressStyle={{ opacity: 0.85 }}
       onPress={() => item.meaning && setShowMeaning((v) => !v)}
     >
-      <YStack gap="$1">
+      <YStack gap="$2">
         {/* カテゴリラベル */}
-        <Text fontSize="$1" fontWeight="700" letterSpacing={0.5} style={{ color }}>
+        <Text
+          fontSize={vertical ? '$2' : '$1'}
+          fontWeight="700"
+          letterSpacing={0.5}
+          style={{ color }}
+        >
           今日の{item.category}
         </Text>
 
         {/* 表現本文 */}
         <Text
-          fontSize={vertical ? '$6' : '$5'}
+          fontSize={vertical ? '$7' : '$5'}
           fontWeight="800"
           letterSpacing={-0.5}
           numberOfLines={vertical ? undefined : 2}
@@ -53,20 +58,24 @@ function DailyCard({ item, vertical }: { item: DailyExpression; vertical?: boole
         {item.meaning && (
           !showMeaning ? (
             <XStack alignItems="center" gap="$1" marginTop="$1">
-              <Ionicons name="book-outline" size={11} color="#999" />
-              <Text fontSize="$1" color="#999">意味を見る</Text>
+              <Ionicons name="book-outline" size={vertical ? 13 : 11} color="#999" />
+              <Text fontSize={vertical ? '$2' : '$1'} color="#999">意味を見る</Text>
             </XStack>
           ) : (
-            <YStack marginTop="$1" gap="$1">
-              <Text fontSize={vertical ? '$3' : '$2'} color="#444" lineHeight={vertical ? 22 : 18} numberOfLines={vertical ? undefined : 3}>
+            <YStack marginTop="$1" gap="$2">
+              <Text
+                fontSize={vertical ? '$3' : '$2'}
+                color="#444"
+                lineHeight={vertical ? 24 : 18}
+              >
                 {item.meaning}
               </Text>
               {item.source_name && (
-                <Text fontSize="$1" color="#aaa">出典: {item.source_name}</Text>
+                <Text fontSize={vertical ? '$2' : '$1'} color="#aaa">出典: {item.source_name}</Text>
               )}
               <XStack alignItems="center" gap="$1">
-                <Ionicons name="chevron-up-outline" size={11} color="#999" />
-                <Text fontSize="$1" color="#999">閉じる</Text>
+                <Ionicons name="chevron-up-outline" size={vertical ? 13 : 11} color="#999" />
+                <Text fontSize={vertical ? '$2' : '$1'} color="#999">閉じる</Text>
               </XStack>
             </YStack>
           )
@@ -104,12 +113,12 @@ export function DailySectionVertical() {
 
   return (
     <YStack>
-      <XStack alignItems="center" gap="$2" marginBottom="$3">
-        <Ionicons name="sunny-outline" size={14} color="#BC002D" />
-        <Text fontSize="$2" fontWeight="700" color="#333">{todayLabel()}の表現</Text>
+      <XStack alignItems="center" gap="$2" marginBottom="$4">
+        <Ionicons name="sunny-outline" size={18} color="#BC002D" />
+        <Text fontSize="$4" fontWeight="700" color="#333">{todayLabel()}の表現</Text>
       </XStack>
       {loading ? (
-        <YStack alignItems="center" paddingVertical="$3"><Spinner size="small" /></YStack>
+        <YStack alignItems="center" paddingVertical="$4"><Spinner size="large" /></YStack>
       ) : (
         expressions.map((item) => <DailyCard key={item.id} item={item} vertical />)
       )}
