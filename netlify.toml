@@ -1,0 +1,12 @@
+[build]
+  command = "npx expo export -p web --output-dir dist"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA: すべてのルートを index.html にリダイレクト
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
