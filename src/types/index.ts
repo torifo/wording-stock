@@ -35,6 +35,7 @@ export interface Expression {
   profile?: Pick<Profile, 'username' | 'avatar_url'>;
   appropriate_count?: number;
   inappropriate_count?: number;
+  isFavorited?: boolean;
 }
 
 export interface Vote {

@@ -1,40 +1,175 @@
 import { useState, useEffect } from 'react';
-import { Alert } from 'react-native';
+import { Alert, FlatList, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
-import { Button, Input, Text, YStack, XStack, Avatar, Spinner } from 'tamagui';
+import { Button, Input, Text, YStack, XStack, Avatar, Spinner, TextArea, Select, Card } from 'tamagui';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import type { Profile } from '../../types';
+import { useMyPosts } from '../../hooks/useMyPosts';
+import { useFavorites } from '../../hooks/useFavorites';
+import { MaxWidth } from '../../components/MaxWidth';
+import { ExpressionCard } from '../../components/ExpressionCard';
+import type { Profile, Category, Expression } from '../../types';
+
+type Tab = 'settings' | 'posts' | 'favorites';
+
+const CATEGORIES: Category[] = ['四字熟語', '慣用句', 'ことわざ', '名言・格言', '詩・俳句', 'その他'];
+
+// ── 投稿履歴カード（編集・削除付き） ──────────────────────────────────────
+
+function MyPostCard({
+  post,
+  onDeleted,
+  onUpdated,
+}: {
+  post: Expression;
+  onDeleted: (id: string) => void;
+  onUpdated: (id: string, fields: { content: string; meaning: string; category: Category }) => void;
+}) {
+  const [editing, setEditing]     = useState(false);
+  const [content, setContent]     = useState(post.content);
+  const [meaning, setMeaning]     = useState(post.meaning ?? '');
+  const [category, setCategory]   = useState<Category>(post.category);
+  const [saving, setSaving]       = useState(false);
+  const [deleting, setDeleting]   = useState(false);
+  const [errMsg, setErrMsg]       = useState('');
+
+  function formatDate(iso: string) {
+    const d = new Date(iso);
+    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+  }
+
+  async function handleSave() {
+    if (!content.trim()) return;
+    setSaving(true);
+    setErrMsg('');
+    const { error } = await supabase
+      .from('expressions')
+      .update({ content: content.trim(), meaning: meaning.trim() || null, category })
+      .eq('id', post.id);
+    setSaving(false);
+    if (error) { setErrMsg(error.message); return; }
+    onUpdated(post.id, { content: content.trim(), meaning, category });
+    setEditing(false);
+  }
+
+  function handleDeleteConfirm() {
+    Alert.alert('削除の確認', 'この投稿を削除しますか？', [
+      { text: 'キャンセル', style: 'cancel' },
+      {
+        text: '削除', style: 'destructive',
+        onPress: async () => {
+          setDeleting(true);
+          const { error } = await supabase.from('expressions').delete().eq('id', post.id);
+          setDeleting(false);
+          if (error) { Alert.alert('エラー', error.message); return; }
+          onDeleted(post.id);
+        },
+      },
+    ]);
+  }
+
+  return (
+    <Card
+      marginBottom="$2"
+      backgroundColor="white"
+      borderWidth={1}
+      borderColor="#BC002D"
+      borderRadius="$3"
+      padding="$3"
+    >
+      {!editing ? (
+        <>
+          <XStack justifyContent="space-between" alignItems="flex-start" marginBottom="$1">
+            <YStack flex={1}>
+              <Text fontSize="$5" fontWeight="700" color="$color12">{post.content}</Text>
+              <XStack gap="$2" marginTop="$1">
+                <Text fontSize="$2" color="$gray9">{post.category}</Text>
+                <Text fontSize="$2" color="$gray9">{formatDate(post.created_at)}</Text>
+              </XStack>
+            </YStack>
+            <XStack gap="$2">
+              <Button size="$2" chromeless onPress={() => setEditing(true)} paddingHorizontal="$1">
+                <Ionicons name="pencil-outline" size={16} color="#BC002D" />
+              </Button>
+              <Button size="$2" chromeless onPress={handleDeleteConfirm} paddingHorizontal="$1" disabled={deleting}>
+                <Ionicons name="trash-outline" size={16} color="#BC002D" />
+              </Button>
+            </XStack>
+          </XStack>
+          {post.meaning && (
+            <Text fontSize="$2" color="$color9" numberOfLines={2}>{post.meaning}</Text>
+          )}
+        </>
+      ) : (
+        <YStack gap="$2">
+          <Text fontSize="$2" fontWeight="700" color="$color11">編集</Text>
+          <Input value={content} onChangeText={setContent} placeholder="言葉・表現" />
+          <TextArea value={meaning} onChangeText={setMeaning} placeholder="意味・思い・ニュアンス（任意）" minHeight={80} />
+          <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
+            <Select.Trigger><Select.Value /></Select.Trigger>
+            <Select.Content>
+              <Select.ScrollUpButton />
+              <Select.Viewport>
+                {CATEGORIES.map((cat, i) => (
+                  <Select.Item key={cat} index={i} value={cat}>
+                    <Select.ItemText>{cat}</Select.ItemText>
+                  </Select.Item>
+                ))}
+              </Select.Viewport>
+              <Select.ScrollDownButton />
+            </Select.Content>
+          </Select>
+          {errMsg !== '' && <Text color="$red10" fontSize="$2">{errMsg}</Text>}
+          <XStack gap="$2" justifyContent="flex-end">
+            <Button size="$2" variant="outlined" borderColor="#BC002D" color="#BC002D" onPress={() => setEditing(false)}>キャンセル</Button>
+            <Button size="$2" backgroundColor="#BC002D" color="white" onPress={handleSave} disabled={saving} icon={saving ? <Spinner color="white" size="small" /> : undefined}>
+              保存
+            </Button>
+          </XStack>
+        </YStack>
+      )}
+    </Card>
+  );
+}
+
+// ── メイン ────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [username, setUsername] = useState('');
+  const [activeTab, setActiveTab] = useState<Tab>('settings');
+
+  // プロフィール設定
+  const [profile, setProfile]                   = useState<Profile | null>(null);
+  const [username, setUsername]                 = useState('');
   const [favoriteExpression, setFavoriteExpression] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading]                   = useState(false);
+  const [saving, setSaving]                     = useState(false);
+  const [settingsError, setSettingsError]       = useState('');
+
+  // 投稿履歴
+  const { posts, loading: postsLoading, error: postsError, fetch: fetchPosts, deletePost, updatePost } = useMyPosts(user?.id);
+
+  // お気に入り
+  const { favorites, loading: favsLoading, error: favsError, fetch: fetchFavs, toggle } = useFavorites(user?.id);
 
   useEffect(() => {
     if (!user) return;
     loadProfile();
   }, [user]);
 
+  useEffect(() => {
+    if (activeTab === 'posts' && posts.length === 0) fetchPosts();
+    if (activeTab === 'favorites' && favorites.length === 0) fetchFavs();
+  }, [activeTab]);
+
   async function loadProfile() {
     if (!user) return;
     setLoading(true);
-    const { data, error: fetchError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+    const { data, error: fetchError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
     setLoading(false);
-
-    if (fetchError) {
-      setError(fetchError.message);
-      return;
-    }
+    if (fetchError) { setSettingsError(fetchError.message); return; }
     if (data) {
       setProfile(data as Profile);
       setUsername(data.username ?? '');
@@ -44,159 +179,170 @@ export default function ProfileScreen() {
 
   async function handleSave() {
     if (!user) return;
-    setError('');
-
-    if (username.length < 1 || username.length > 20) {
-      setError('ユーザー名は 1〜20 文字で入力してください');
-      return;
-    }
-    if (favoriteExpression !== '' && favoriteExpression.length > 30) {
-      setError('推しの表現は 30 文字以内で入力してください');
-      return;
-    }
-
+    setSettingsError('');
+    if (username.length < 1 || username.length > 20) { setSettingsError('ユーザー名は 1〜20 文字で入力してください'); return; }
+    if (favoriteExpression !== '' && favoriteExpression.length > 30) { setSettingsError('推しの表現は 30 文字以内で入力してください'); return; }
     setSaving(true);
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        username,
-        favorite_expression: favoriteExpression || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id);
+    const { error: updateError } = await supabase.from('profiles').update({ username, favorite_expression: favoriteExpression || null, updated_at: new Date().toISOString() }).eq('id', user.id);
     setSaving(false);
-
     if (updateError) {
-      if (updateError.code === '23505') {
-        setError('このユーザー名は既に使用されています');
-      } else {
-        setError(updateError.message);
-      }
+      setSettingsError(updateError.code === '23505' ? 'このユーザー名は既に使用されています' : updateError.message);
       return;
     }
-
     Alert.alert('保存しました');
     loadProfile();
   }
 
   async function handleAvatarPick() {
     if (!user) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.7 });
     if (result.canceled || !result.assets[0]) return;
-
     const asset = result.assets[0];
     const ext = asset.uri.split('.').pop() ?? 'jpg';
     const path = `${user.id}/avatar.${ext}`;
-
     const response = await fetch(asset.uri);
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
-
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(path, arrayBuffer, { contentType: `image/${ext}`, upsert: true });
-
-    if (uploadError) {
-      setError(uploadError.message);
-      return;
-    }
-
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, arrayBuffer, { contentType: `image/${ext}`, upsert: true });
+    if (uploadError) { setSettingsError(uploadError.message); return; }
     const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-
-    await supabase
-      .from('profiles')
-      .update({ avatar_url: urlData.publicUrl })
-      .eq('id', user.id);
-
+    await supabase.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', user.id);
     loadProfile();
   }
 
-  if (!user) {
-    return <Redirect href="/auth/login" />;
-  }
+  if (!user) return <Redirect href="/auth/login" />;
+  if (loading) return <YStack flex={1} alignItems="center" justifyContent="center"><Spinner /></YStack>;
 
-  if (loading) {
-    return (
-      <YStack flex={1} alignItems="center" justifyContent="center">
-        <Spinner />
-      </YStack>
-    );
-  }
+  const tabStyle = (tab: Tab) => ({
+    flex: 1 as const,
+    size: '$3' as const,
+    backgroundColor: activeTab === tab ? '#BC002D' : 'transparent',
+    color: activeTab === tab ? 'white' : '#BC002D',
+    borderColor: '#BC002D' as const,
+    borderBottomWidth: activeTab === tab ? 0 : 1,
+    borderRadius: 0 as const,
+    onPress: () => setActiveTab(tab),
+  } as const);
 
   return (
-    <YStack flex={1} padding="$4" gap="$4">
-      {/* アバター */}
-      <YStack alignItems="center" gap="$2">
-        <Avatar circular size="$8" onPress={handleAvatarPick}>
-          {profile?.avatar_url ? (
-            <Avatar.Image src={profile.avatar_url} />
+    <YStack flex={1} backgroundColor="$background">
+      <MaxWidth>
+        {/* タブバー */}
+        <XStack borderBottomWidth={1} borderBottomColor="#BC002D">
+          <Button {...tabStyle('settings')}>設定</Button>
+          <Button {...tabStyle('posts')}>投稿履歴</Button>
+          <Button {...tabStyle('favorites')}>お気に入り</Button>
+        </XStack>
+
+        {/* ── 設定タブ ── */}
+        {activeTab === 'settings' && (
+          <FlatList
+            data={[]}
+            renderItem={null}
+            keyExtractor={() => ''}
+            contentContainerStyle={{ padding: 16, gap: 16 }}
+            ListHeaderComponent={
+              <YStack gap="$4">
+                {/* アバター */}
+                <YStack alignItems="center" gap="$2">
+                  <Avatar circular size="$10" onPress={handleAvatarPick}>
+                    {profile?.avatar_url ? (
+                      <Avatar.Image src={profile.avatar_url} />
+                    ) : (
+                      <Avatar.Fallback backgroundColor="$red2">
+                        <Text fontSize="$7" color="#BC002D">{username?.[0]?.toUpperCase() ?? '?'}</Text>
+                      </Avatar.Fallback>
+                    )}
+                  </Avatar>
+                  <Button size="$2" chromeless color="#BC002D" onPress={handleAvatarPick}>
+                    <XStack alignItems="center" gap="$1">
+                      <Ionicons name="camera-outline" size={14} color="#BC002D" />
+                      <Text fontSize="$2" color="#BC002D">画像を変更</Text>
+                    </XStack>
+                  </Button>
+                </YStack>
+
+                {/* フォーム */}
+                <YStack gap="$1">
+                  <Text fontSize="$3" color="$gray10">ユーザー名（1〜20文字）</Text>
+                  <Input value={username} onChangeText={setUsername} placeholder="ユーザー名" maxLength={20} />
+                </YStack>
+                <YStack gap="$1">
+                  <Text fontSize="$3" color="$gray10">推しの表現（30文字以内）</Text>
+                  <Input value={favoriteExpression} onChangeText={setFavoriteExpression} placeholder="例: 温故知新、袖振り合うも多生の縁、など" maxLength={30} />
+                </YStack>
+
+                {settingsError !== '' && <Text color="$red10" fontSize="$3">{settingsError}</Text>}
+
+                <Button backgroundColor="#BC002D" color="white" pressStyle={{ opacity: 0.8 }} onPress={handleSave} disabled={saving} icon={saving ? <Spinner color="white" /> : undefined}>
+                  保存する
+                </Button>
+                <Button variant="outlined" borderColor="#BC002D" color="#BC002D" onPress={signOut}>
+                  ログアウト
+                </Button>
+              </YStack>
+            }
+          />
+        )}
+
+        {/* ── 投稿履歴タブ ── */}
+        {activeTab === 'posts' && (
+          postsLoading ? (
+            <YStack flex={1} alignItems="center" justifyContent="center"><ActivityIndicator color="#BC002D" /></YStack>
+          ) : postsError !== '' ? (
+            <YStack flex={1} alignItems="center" justifyContent="center" padding="$4"><Text color="$red10">{postsError}</Text></YStack>
           ) : (
-            <Avatar.Fallback backgroundColor="$blue5">
-              <Text fontSize="$6" color="$blue11">
-                {username?.[0]?.toUpperCase() ?? '?'}
-              </Text>
-            </Avatar.Fallback>
-          )}
-        </Avatar>
-        <Text fontSize="$2" color="$blue10" onPress={handleAvatarPick}>
-          画像を変更
-        </Text>
-      </YStack>
+            <FlatList
+              data={posts}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ padding: 12 }}
+              renderItem={({ item }) => (
+                <MyPostCard
+                  post={item}
+                  onDeleted={(id) => deletePost(id)}
+                  onUpdated={(id, fields) => updatePost(id, fields)}
+                />
+              )}
+              ListEmptyComponent={
+                <YStack alignItems="center" padding="$8">
+                  <Ionicons name="document-text-outline" size={40} color="#ccc" />
+                  <Text color="$gray9" marginTop="$2">まだ投稿がありません</Text>
+                </YStack>
+              }
+            />
+          )
+        )}
 
-      {/* ユーザー名 */}
-      <YStack gap="$1">
-        <Text fontSize="$3" color="$gray10">ユーザー名（1〜20文字）</Text>
-        <Input
-          value={username}
-          onChangeText={setUsername}
-          placeholder="ユーザー名"
-          maxLength={20}
-        />
-      </YStack>
-
-      {/* 推しの表現 */}
-      <YStack gap="$1">
-        <Text fontSize="$3" color="$gray10">推しの表現（30文字以内）</Text>
-        <Input
-          value={favoriteExpression}
-          onChangeText={setFavoriteExpression}
-          placeholder="例: 温故知新、袖振り合うも多生の縁、など"
-          maxLength={30}
-        />
-      </YStack>
-
-      {error !== '' && (
-        <Text color="$red10" fontSize="$3">
-          {error}
-        </Text>
-      )}
-
-      <Button
-        backgroundColor="$blue9"
-        color="white"
-        pressStyle={{ backgroundColor: '$blue10' }}
-        onPress={handleSave}
-        disabled={saving}
-        icon={saving ? <Spinner color="white" /> : undefined}
-      >
-        保存する
-      </Button>
-
-      <Button
-        variant="outlined"
-        borderColor="$blue9"
-        color="$blue9"
-        onPress={signOut}
-        marginTop="$2"
-      >
-        ログアウト
-      </Button>
+        {/* ── お気に入りタブ ── */}
+        {activeTab === 'favorites' && (
+          favsLoading ? (
+            <YStack flex={1} alignItems="center" justifyContent="center"><ActivityIndicator color="#BC002D" /></YStack>
+          ) : favsError !== '' ? (
+            <YStack flex={1} alignItems="center" justifyContent="center" padding="$4"><Text color="$red10">{favsError}</Text></YStack>
+          ) : (
+            <FlatList
+              data={favorites}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ padding: 12 }}
+              renderItem={({ item }) => (
+                <ExpressionCard
+                  expression={{ ...item, isFavorited: true }}
+                  onBookmarkToggle={async (id) => {
+                    await toggle(id);
+                  }}
+                />
+              )}
+              ListEmptyComponent={
+                <YStack alignItems="center" padding="$8">
+                  <Ionicons name="bookmark-outline" size={40} color="#ccc" />
+                  <Text color="$gray9" marginTop="$2">お気に入りがありません</Text>
+                  <Text fontSize="$2" color="$gray8" marginTop="$1">タイムラインの🔖アイコンで追加できます</Text>
+                </YStack>
+              }
+            />
+          )
+        )}
+      </MaxWidth>
     </YStack>
   );
 }
