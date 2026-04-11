@@ -9,6 +9,7 @@ interface Props {
   expression: Expression;
   onBookmarkToggle?: (id: string, newState: boolean) => void;
   hideVoteCount?: boolean;
+  onLikeChange?: (expressionId: string, liked: boolean) => void;
 }
 
 function formatDate(iso: string): string {
@@ -16,7 +17,7 @@ function formatDate(iso: string): string {
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-export function ExpressionCard({ expression, onBookmarkToggle, hideVoteCount = false }: Props) {
+export function ExpressionCard({ expression, onBookmarkToggle, hideVoteCount = false, onLikeChange }: Props) {
   const [showMeaning, setShowMeaning] = useState(false);
   const [isFav, setIsFav] = useState(expression.isFavorited ?? false);
   const [showProfile, setShowProfile] = useState(false);
@@ -176,6 +177,7 @@ export function ExpressionCard({ expression, onBookmarkToggle, hideVoteCount = f
         appropriateCount={expression.appropriate_count ?? 0}
         iLiked={expression.iLiked}
         showCount={!hideVoteCount}
+        onLikeChange={onLikeChange}
       />
     </Card>
   );

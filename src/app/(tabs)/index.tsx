@@ -54,6 +54,15 @@ export default function TimelineScreen() {
     await toggle(id);
   }, [toggle]);
 
+  const handleLikeChange = useCallback((expressionId: string, liked: boolean) => {
+    setLikedIds((prev) => {
+      const next = new Set(prev);
+      if (liked) next.add(expressionId);
+      else next.delete(expressionId);
+      return next;
+    });
+  }, []);
+
   function handleSearch() { setKeyword(searchInput); }
 
   // ── ドラッグリサイズ (web only) ────────────────────────────────────────
@@ -145,7 +154,12 @@ export default function TimelineScreen() {
           data={expressionsWithMeta}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <ExpressionCard expression={item} onBookmarkToggle={handleBookmarkToggle} hideVoteCount />
+            <ExpressionCard
+              expression={item}
+              onBookmarkToggle={handleBookmarkToggle}
+              onLikeChange={handleLikeChange}
+              hideVoteCount
+            />
           )}
           contentContainerStyle={{ padding: 12 }}
           onEndReached={fetchMore}

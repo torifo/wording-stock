@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { VoteType } from '../types';
 
+export type VoteResult = 'inserted' | 'already_exists' | 'error';
+
 interface UseVoteResult {
   voting: boolean;
   error: string;
-  vote: (expressionId: string, voteType: VoteType, userId: string) => Promise<boolean>;
+  vote: (expressionId: string, voteType: VoteType, userId: string) => Promise<VoteResult>;
   unlike: (expressionId: string, userId: string) => Promise<boolean>;
 }
 
@@ -17,7 +19,7 @@ export function useVote(): UseVoteResult {
     expressionId: string,
     voteType: VoteType,
     userId: string,
-  ): Promise<boolean> {
+  ): Promise<VoteResult> {
     setVoting(true);
     setError('');
 
@@ -30,13 +32,13 @@ export function useVote(): UseVoteResult {
     setVoting(false);
 
     if (insertError) {
-      if (insertError.code !== '23505') {
-        setError(insertError.message);
-      }
-      return false;
+      // 23505 = unique 制約違反 = すでにいいね済み → UI を同期させるため already_exists を返す
+      if (insertError.code === '23505') return 'already_exists';
+      setError(insertError.message);
+      return 'error';
     }
 
-    return true;
+    return 'inserted';
   }
 
   async function unlike(expressionId: string, userId: string): Promise<boolean> {

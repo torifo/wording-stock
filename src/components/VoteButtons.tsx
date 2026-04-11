@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useVote } from '../hooks/useVote';
 import { useAuth } from '../context/AuthContext';
 
-const DEBOUNCE_MS = 600; // 連打防止 (人間の操作速度では気にならない範囲)
+const DEBOUNCE_MS = 600;
 
 interface Props {
   expressionId: string;
@@ -14,17 +14,30 @@ interface Props {
   userVote?: 'appropriate' | 'inappropriate' | null;
   iLiked?: boolean;
   showCount?: boolean;
+  onLikeChange?: (expressionId: string, liked: boolean) => void;
 }
 
-export function VoteButtons({ expressionId, appropriateCount, iLiked, showCount = true }: Props) {
+export function VoteButtons({
+  expressionId,
+  appropriateCount,
+  iLiked,
+  showCount = true,
+  onLikeChange,
+}: Props) {
   const { user } = useAuth();
   const { voting, vote, unlike } = useVote();
   const [liked, setLiked] = useState(iLiked ?? false);
   const [count, setCount] = useState(appropriateCount);
   const lastActionAt = useRef<number>(0);
 
+  // iLiked prop が非同期で更新されたとき（likedIds ロード完了後）に UI を同期
+  const prevILiked = useRef(iLiked);
+  if (prevILiked.current !== iLiked && iLiked !== undefined) {
+    prevILiked.current = iLiked;
+    if (liked !== iLiked) setLiked(iLiked);
+  }
+
   async function handleLike() {
-    // 連打 DoS 防止: 前回操作から DEBOUNCE_MS 未満は無視
     const now = Date.now();
     if (now - lastActionAt.current < DEBOUNCE_MS) return;
     lastActionAt.current = now;
@@ -34,10 +47,22 @@ export function VoteButtons({ expressionId, appropriateCount, iLiked, showCount 
 
     if (liked) {
       const success = await unlike(expressionId, user.id);
-      if (success) { setLiked(false); setCount((n) => Math.max(0, n - 1)); }
+      if (success) {
+        setLiked(false);
+        setCount((n) => Math.max(0, n - 1));
+        onLikeChange?.(expressionId, false);
+      }
     } else {
-      const success = await vote(expressionId, 'appropriate', user.id);
-      if (success) { setLiked(true); setCount((n) => n + 1); }
+      const result = await vote(expressionId, 'appropriate', user.id);
+      if (result === 'inserted') {
+        setLiked(true);
+        setCount((n) => n + 1);
+        onLikeChange?.(expressionId, true);
+      } else if (result === 'already_exists') {
+        // DB にはすでにいいね済み → UI だけ同期（カウントは変えない）
+        setLiked(true);
+        onLikeChange?.(expressionId, true);
+      }
     }
   }
 
