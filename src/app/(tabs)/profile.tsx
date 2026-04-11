@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Alert, FlatList, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
+import { Alert, FlatList, ActivityIndicator, Platform, useWindowDimensions, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { Button, Input, Text, YStack, XStack, Avatar, Spinner, TextArea, Select, Card } from 'tamagui';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useMyPosts } from '../../hooks/useMyPosts';
 import { useFavorites } from '../../hooks/useFavorites';
 import { ExpressionCard } from '../../components/ExpressionCard';
+import { VoteButtons } from '../../components/VoteButtons';
 import type { Profile, Category, Expression } from '../../types';
 
 type Tab = 'settings' | 'posts' | 'favorites';
@@ -23,20 +24,40 @@ function MyPostCard({
   onUpdated,
 }: {
   post: Expression;
-  onDeleted: (id: string) => void;
+  onDeleted: (id: string) => Promise<string | null>;
   onUpdated: (id: string, fields: { content: string; meaning: string; category: Category }) => void;
 }) {
-  const [editing, setEditing]     = useState(false);
-  const [content, setContent]     = useState(post.content);
-  const [meaning, setMeaning]     = useState(post.meaning ?? '');
-  const [category, setCategory]   = useState<Category>(post.category);
-  const [saving, setSaving]       = useState(false);
-  const [deleting, setDeleting]   = useState(false);
-  const [errMsg, setErrMsg]       = useState('');
+  const [editing, setEditing]   = useState(false);
+  const [content, setContent]   = useState(post.content);
+  const [meaning, setMeaning]   = useState(post.meaning ?? '');
+  const [category, setCategory] = useState<Category>(post.category);
+  const [saving, setSaving]     = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [errMsg, setErrMsg]     = useState('');
 
   function formatDate(iso: string) {
     const d = new Date(iso);
     return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+  }
+
+  async function performDelete() {
+    setDeleting(true);
+    const err = await onDeleted(post.id);
+    setDeleting(false);
+    if (err) setErrMsg(err);
+  }
+
+  function handleDeleteConfirm() {
+    if (Platform.OS === 'web') {
+      // Web では window.confirm を直接使用（Alert.alert の web 実装に依存しない）
+      if ((globalThis as any).confirm?.('この投稿を削除しますか？') === false) return;
+      performDelete();
+    } else {
+      Alert.alert('削除の確認', 'この投稿を削除しますか？', [
+        { text: 'キャンセル', style: 'cancel' },
+        { text: '削除', style: 'destructive', onPress: performDelete },
+      ]);
+    }
   }
 
   async function handleSave() {
@@ -53,22 +74,6 @@ function MyPostCard({
     setEditing(false);
   }
 
-  function handleDeleteConfirm() {
-    Alert.alert('削除の確認', 'この投稿を削除しますか？', [
-      { text: 'キャンセル', style: 'cancel' },
-      {
-        text: '削除', style: 'destructive',
-        onPress: async () => {
-          setDeleting(true);
-          const { error } = await supabase.from('expressions').delete().eq('id', post.id);
-          setDeleting(false);
-          if (error) { Alert.alert('エラー', error.message); return; }
-          onDeleted(post.id);
-        },
-      },
-    ]);
-  }
-
   return (
     <Card
       marginBottom="$2"
@@ -82,30 +87,50 @@ function MyPostCard({
         <>
           <XStack justifyContent="space-between" alignItems="flex-start" marginBottom="$1">
             <YStack flex={1}>
-              <Text fontSize="$5" fontWeight="700" color="$color12">{post.content}</Text>
+              <Text fontSize="$5" fontWeight="700" color="#111">{post.content}</Text>
               <XStack gap="$2" marginTop="$1">
-                <Text fontSize="$2" color="$gray9">{post.category}</Text>
-                <Text fontSize="$2" color="$gray9">{formatDate(post.created_at)}</Text>
+                <Text fontSize="$2" color="#888">{post.category}</Text>
+                <Text fontSize="$2" color="#888">{formatDate(post.created_at)}</Text>
               </XStack>
             </YStack>
-            <XStack gap="$2">
+            <XStack gap="$2" alignItems="center">
               <Button size="$2" chromeless onPress={() => setEditing(true)} paddingHorizontal="$1">
                 <Ionicons name="pencil-outline" size={16} color="#BC002D" />
               </Button>
               <Button size="$2" chromeless onPress={handleDeleteConfirm} paddingHorizontal="$1" disabled={deleting}>
-                <Ionicons name="trash-outline" size={16} color="#BC002D" />
+                {deleting
+                  ? <Spinner size="small" color="#BC002D" />
+                  : <Ionicons name="trash-outline" size={16} color="#BC002D" />}
               </Button>
             </XStack>
           </XStack>
+
           {post.meaning && (
-            <Text fontSize="$2" color="$color9" numberOfLines={2}>{post.meaning}</Text>
+            <Text fontSize="$2" color="#555" numberOfLines={2} marginBottom="$2">
+              {post.meaning}
+            </Text>
+          )}
+
+          {/* いいね数（統計表示・ボタンなし） */}
+          <XStack alignItems="center" gap="$1">
+            <Ionicons name="heart" size={13} color="#BC002D" />
+            <Text fontSize="$2" color="#BC002D" fontWeight="600">
+              {post.appropriate_count ?? 0}
+            </Text>
+            <Text fontSize="$2" color="#aaa"> いいね</Text>
+          </XStack>
+
+          {errMsg !== '' && (
+            <Text color="#BC002D" fontSize="$2" marginTop="$1">{errMsg}</Text>
           )}
         </>
       ) : (
         <YStack gap="$2">
-          <Text fontSize="$2" fontWeight="700" color="$color11">編集</Text>
-          <Input value={content} onChangeText={setContent} placeholder="言葉・表現" />
-          <TextArea value={meaning} onChangeText={setMeaning} placeholder="意味・思い・ニュアンス（任意）" minHeight={80} />
+          <Text fontSize="$2" fontWeight="700" color="#333">編集</Text>
+          <Input value={content} onChangeText={setContent} placeholder="言葉・表現"
+            borderColor="#FFD0DC" focusStyle={{ borderColor: '#BC002D' }} />
+          <TextArea value={meaning} onChangeText={setMeaning} placeholder="意味・思い・ニュアンス（任意）"
+            minHeight={80} borderColor="#FFD0DC" focusStyle={{ borderColor: '#BC002D' }} />
           <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
             <Select.Trigger><Select.Value /></Select.Trigger>
             <Select.Content>
@@ -120,10 +145,14 @@ function MyPostCard({
               <Select.ScrollDownButton />
             </Select.Content>
           </Select>
-          {errMsg !== '' && <Text color="$red10" fontSize="$2">{errMsg}</Text>}
+          {errMsg !== '' && <Text color="#BC002D" fontSize="$2">{errMsg}</Text>}
           <XStack gap="$2" justifyContent="flex-end">
-            <Button size="$2" variant="outlined" borderColor="#BC002D" color="#BC002D" onPress={() => setEditing(false)}>キャンセル</Button>
-            <Button size="$2" backgroundColor="#BC002D" color="white" onPress={handleSave} disabled={saving} icon={saving ? <Spinner color="white" size="small" /> : undefined}>
+            <Button size="$2" variant="outlined" borderColor="#BC002D" color="#BC002D"
+              onPress={() => { setEditing(false); setErrMsg(''); }}>
+              キャンセル
+            </Button>
+            <Button size="$2" backgroundColor="#BC002D" color="white" onPress={handleSave}
+              disabled={saving} icon={saving ? <Spinner color="white" size="small" /> : undefined}>
               保存
             </Button>
           </XStack>
@@ -299,7 +328,7 @@ export default function ProfileScreen() {
               renderItem={({ item }) => (
                 <MyPostCard
                   post={item}
-                  onDeleted={(id) => deletePost(id)}
+                  onDeleted={deletePost}
                   onUpdated={(id, fields) => updatePost(id, fields)}
                 />
               )}
