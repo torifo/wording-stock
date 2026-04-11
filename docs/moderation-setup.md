@@ -104,25 +104,61 @@ HF_API_TOKEN        = hf_xxxx
 
 ## Step 5：動作確認
 
-Supabase ダッシュボード → Edge Functions → `ai-checker` → **Invoke** ボタン → レスポンスを確認。
+curl で直接叩いて確認する（ダッシュボードの Invoke ボタンは使わない）：
+
+```bash
+curl -s -X POST "https://<project-ref>.supabase.co/functions/v1/ai-checker" \
+  -H "Authorization: Bearer <anon-key>" \
+  -H "Content-Type: application/json"
+```
 
 正常時のレスポンス例:
 ```json
 {
   "provider": "openai",
-  "processed": 3,
+  "processed": 0,
   "failed": 0,
-  "total": 3
+  "total": 0
 }
 ```
+
+> `processed: 0` はシードデータが全て処理済みなので正常。新規投稿があれば件数が増える。
 
 ---
 
 ## プロバイダーの切り替え方
 
-`MODERATION_PROVIDER` の値を変更して **Save** するだけ。再デプロイ不要。
+**ダッシュボードの Secrets 画面からは新規追加がしづらいため、CLI で操作する。**
 
+### 切り替えコマンド（再デプロイ不要）
+
+```bash
+# openai に切り替え（推奨・デフォルト）
+supabase secrets set MODERATION_PROVIDER=openai
+
+# perspective に切り替え（日本語精度最強・要 Perspective API キー）
+supabase secrets set MODERATION_PROVIDER=perspective
+
+# 多言語 HF モデルに切り替え（外部サービス不要）
+supabase secrets set MODERATION_PROVIDER=hf_multilingual
+
+# 英語特化 HF モデルに切り替え
+supabase secrets set MODERATION_PROVIDER=hf_toxic_bert
 ```
-openai          → perspective    # 日本語精度を上げたい
-perspective     → hf_multilingual  # Google Cloud を使いたくない
+
+### 現在の設定を確認
+
+```bash
+supabase secrets list
 ```
+
+### 切り替え後の動作確認
+
+```bash
+curl -s -X POST "https://<project-ref>.supabase.co/functions/v1/ai-checker" \
+  -H "Authorization: Bearer <anon-key>" \
+  -H "Content-Type: application/json"
+# レスポンスの "provider" フィールドで確認
+```
+
+> Supabase CLI のパスが通っていない場合は `/c/Users/Swimm/scoop/shims/supabase.exe secrets set ...` で実行する。
