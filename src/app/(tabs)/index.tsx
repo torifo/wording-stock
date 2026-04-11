@@ -128,10 +128,10 @@ export default function TimelineScreen() {
 
         {/* 今日の表現（右サイドバー） */}
         <YStack
-          width={280}
+          width={240}
           padding="$3"
           borderLeftWidth={1}
-          borderLeftColor="$borderColor"
+          borderLeftColor="#eee"
           // @ts-ignore: web sticky
           style={{ position: 'sticky', top: 0, alignSelf: 'flex-start', maxHeight: '100vh', overflowY: 'auto' }}
         >
