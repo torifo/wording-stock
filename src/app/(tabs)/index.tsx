@@ -1,5 +1,5 @@
-import { useEffect, useCallback, useState } from 'react';
-import { FlatList, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
+import { useEffect, useCallback, useState, useRef } from 'react';
+import { FlatList, ActivityIndicator, RefreshControl, View, useWindowDimensions } from 'react-native';
 import { router, Redirect } from 'expo-router';
 import { Button, Text, YStack, XStack, Input, ScrollView, Spinner, Theme } from 'tamagui';
 import { supabase } from '../../lib/supabase';
@@ -12,6 +12,10 @@ import type { Category } from '../../types';
 
 const CATEGORIES: Array<Category | null> = [null, '四字熟語', '慣用句', 'ことわざ', '名言・格言', '詩・俳句', 'その他'];
 
+const SIDEBAR_MIN = 200;
+const SIDEBAR_MAX = 520;
+const SIDEBAR_DEFAULT = 300;
+
 export default function TimelineScreen() {
   const { user, session, loading: authLoading } = useAuth();
   const { width } = useWindowDimensions();
@@ -21,6 +25,8 @@ export default function TimelineScreen() {
   const [keyword, setKeyword] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT);
+  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   const { expressions, loading, loadingMore, error, fetch, fetchMore } = useTimeline({
     category: selectedCategory,
@@ -47,6 +53,29 @@ export default function TimelineScreen() {
   }, [toggle]);
 
   function handleSearch() { setKeyword(searchInput); }
+
+  // ── ドラッグリサイズ (web only) ────────────────────────────────────────
+  function startResize(e: any) {
+    dragRef.current = { startX: e.clientX, startWidth: sidebarWidth };
+
+    function onMove(ev: any) {
+      if (!dragRef.current) return;
+      const delta = dragRef.current.startX - ev.clientX;
+      const next = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, dragRef.current.startWidth + delta));
+      setSidebarWidth(next);
+    }
+    function onUp() {
+      dragRef.current = null;
+      // @ts-ignore
+      document.removeEventListener('mousemove', onMove);
+      // @ts-ignore
+      document.removeEventListener('mouseup', onUp);
+    }
+    // @ts-ignore
+    document.addEventListener('mousemove', onMove);
+    // @ts-ignore
+    document.addEventListener('mouseup', onUp);
+  }
 
   if (authLoading) {
     return <YStack flex={1} alignItems="center" justifyContent="center"><Spinner size="large" /></YStack>;
@@ -94,7 +123,7 @@ export default function TimelineScreen() {
       {user && (
         <XStack justifyContent="flex-end" paddingHorizontal="$3" paddingVertical="$1" backgroundColor="$background">
           <Button size="$3" backgroundColor="#BC002D" color="white"
-            pressStyle={{ backgroundColor: '$red10' }} onPress={() => router.push('/post')}>
+            pressStyle={{ opacity: 0.8 }} onPress={() => router.push('/post')}>
             ＋ 投稿する
           </Button>
         </XStack>
@@ -132,31 +161,78 @@ export default function TimelineScreen() {
     </YStack>
   );
 
-  // ── PC / 広い画面: サイドバーレイアウト + ナイトモード ─────────────────
+  // ── PC / 広い画面: ヘッダー + サイドバーレイアウト ──────────────────────
 
   if (isWide) {
     return (
-      <XStack flex={1} backgroundColor="#FFF5F7" justifyContent="center">
-        {/* タイムライン（左側全幅・ダークモード） */}
-        <Theme name="dark">
-          <YStack flex={1} backgroundColor="#1C1C1E">
-            {timelineContent}
-          </YStack>
-        </Theme>
-
-        {/* 今日の表現（右サイドバー・ライト） */}
-        <YStack
-          width={320}
-          padding="$4"
-          borderLeftWidth={1}
-          borderLeftColor="#FFD0DC"
+      <YStack flex={1} backgroundColor="#FFF5F7">
+        {/* ── グローバルヘッダー ── */}
+        <XStack
+          height={56}
+          paddingHorizontal={24}
+          alignItems="center"
           backgroundColor="white"
-          // @ts-ignore: web sticky
-          style={{ position: 'sticky', top: 0, alignSelf: 'flex-start', maxHeight: '100vh', overflowY: 'auto' }}
+          borderBottomWidth={1}
+          borderBottomColor="#FFD0DC"
         >
-          <DailySectionVertical />
-        </YStack>
-      </XStack>
+          <Text fontSize={22} fontWeight="800" color="#BC002D" letterSpacing={-0.5}>
+            Wording Stock
+          </Text>
+        </XStack>
+
+        {/* ── コンテンツエリア（余白付き） ── */}
+        <XStack flex={1} padding={16} gap={0}>
+          {/* タイムライン（ダーク・角丸） */}
+          <Theme name="dark">
+            <YStack flex={1} backgroundColor="#1C1C1E" borderRadius={12}
+              // @ts-ignore
+              style={{ overflow: 'hidden' }}>
+              {timelineContent}
+            </YStack>
+          </Theme>
+
+          {/* ドラッグハンドル */}
+          <View
+            // @ts-ignore
+            onMouseDown={startResize}
+            style={{
+              width: 12,
+              cursor: 'col-resize',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <View style={{
+              width: 3,
+              flex: 1,
+              marginVertical: 24,
+              borderRadius: 2,
+              backgroundColor: '#FFB0C4',
+              opacity: 0.6,
+            }} />
+          </View>
+
+          {/* 今日の表現サイドバー（ライト・角丸・スティッキー） */}
+          <YStack
+            width={sidebarWidth}
+            backgroundColor="white"
+            borderRadius={12}
+            padding="$4"
+            flexShrink={0}
+            // @ts-ignore
+            style={{
+              position: 'sticky',
+              top: 16,
+              alignSelf: 'flex-start',
+              maxHeight: 'calc(100vh - 88px)',
+              overflowY: 'auto',
+            }}
+          >
+            <DailySectionVertical />
+          </YStack>
+        </XStack>
+      </YStack>
     );
   }
 
