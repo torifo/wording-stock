@@ -1,17 +1,20 @@
 /**
- * コンテンツモデレーション プロバイダー実装
+ * コンテンツモデレーション プロバイダー実装（無料枠のみ使用）
  *
- * 環境変数 MODERATION_PROVIDER で切り替え:
+ * 環境変数 MODERATION_PROVIDER で切り替え（すべて無料）:
  *   hf_toxic_bert   … Hugging Face unitary/toxic-bert（英語特化・軽量）
  *   hf_multilingual … Hugging Face multilingual-toxic-xlm-roberta（多言語・日本語可）
- *   openai          … OpenAI Moderation API（無料・日本語良好）
- *   perspective     … Google Perspective API（日本語最強・無料枠あり）
- *   llm_judge       … OpenAI GPT-4o-mini をジャッジとして使う（最も柔軟）
+ *   openai          … OpenAI Moderation API（無料エンドポイント・日本語良好）★デフォルト推奨
+ *   perspective     … Google Perspective API（日本語最強・無料 1 QPS）
+ *
+ * ※ llm_judge（GPT-4o-mini）は従量課金のため除外
  *
  * 必要な環境変数（Supabase Dashboard → Edge Functions → Secrets）:
  *   hf_toxic_bert / hf_multilingual : HF_API_TOKEN
- *   openai / llm_judge              : OPENAI_API_KEY
+ *   openai                          : OPENAI_API_KEY
  *   perspective                     : PERSPECTIVE_API_KEY
+ *
+ * 取得手順: docs/moderation-setup.md を参照
  */
 
 export type CensorStatus = 'safe' | 'grey' | 'banned';
@@ -184,13 +187,16 @@ export async function classifyLLMJudge(content: string): Promise<CensorStatus> {
 export type ClassifyFn = (content: string) => Promise<CensorStatus>;
 
 export function getClassifier(): ClassifyFn {
-  const provider = Deno.env.get('MODERATION_PROVIDER') ?? 'hf_toxic_bert';
+  const provider = Deno.env.get('MODERATION_PROVIDER') ?? 'openai';
   switch (provider) {
     case 'hf_toxic_bert':   return classifyHfToxicBert;
     case 'hf_multilingual': return classifyHfMultilingual;
     case 'openai':          return classifyOpenAI;
     case 'perspective':     return classifyPerspective;
-    case 'llm_judge':       return classifyLLMJudge;
-    default: throw new Error(`Unknown MODERATION_PROVIDER: "${provider}". Choose from: hf_toxic_bert, hf_multilingual, openai, perspective, llm_judge`);
+    // llm_judge は従量課金のため無効化（使用する場合は明示的に有効化すること）
+    case 'llm_judge':
+      throw new Error('llm_judge は従量課金プランです。無料プロバイダー (openai / perspective / hf_multilingual / hf_toxic_bert) を使用してください。');
+    default:
+      throw new Error(`Unknown MODERATION_PROVIDER: "${provider}". Choose from: openai, perspective, hf_multilingual, hf_toxic_bert`);
   }
 }
