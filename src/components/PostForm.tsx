@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Text, TextArea, YStack, XStack, Select, Spinner } from 'tamagui';
+import { Button, Text, TextArea, Input, YStack, XStack, Select, Spinner } from 'tamagui';
 import { usePost } from '../hooks/usePost';
 import { useAuth } from '../context/AuthContext';
 import type { Category } from '../types';
@@ -15,9 +15,10 @@ interface Props {
 export function PostForm({ onSuccess }: Props) {
   const { user } = useAuth();
   const { posting, error, warning, post, clearMessages } = usePost();
-  const [content, setContent]   = useState('');
-  const [meaning, setMeaning]   = useState('');
-  const [category, setCategory] = useState<Category>('四字熟語');
+  const [content, setContent]     = useState('');
+  const [meaning, setMeaning]     = useState('');
+  const [sourceName, setSourceName] = useState('');
+  const [category, setCategory]   = useState<Category>('四字熟語');
 
   const contentOver = content.length > CONTENT_MAX;
   const meaningOver = meaning.length > MEANING_MAX;
@@ -25,10 +26,11 @@ export function PostForm({ onSuccess }: Props) {
 
   async function handlePost() {
     if (!user || !canPost) return;
-    const success = await post({ content, meaning, category, userId: user.id });
+    const success = await post({ content, meaning, sourceName, category, userId: user.id });
     if (success) {
       setContent('');
       setMeaning('');
+      setSourceName('');
       clearMessages();
       onSuccess?.();
     }
@@ -79,6 +81,20 @@ export function PostForm({ onSuccess }: Props) {
         </XStack>
       </YStack>
 
+      {/* 出典・引用元 */}
+      <YStack gap="$1">
+        <Text fontSize="$3" fontWeight="600" color="$color11">
+          出典・引用元
+          <Text fontSize="$2" fontWeight="400" color="$color8"> （任意）</Text>
+        </Text>
+        <Input
+          placeholder="例: 論語、夏目漱石「こころ」、など"
+          value={sourceName}
+          onChangeText={(v) => { clearMessages(); setSourceName(v); }}
+          maxLength={100}
+        />
+      </YStack>
+
       {/* カテゴリ選択 */}
       <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
         <Select.Trigger>
@@ -107,12 +123,12 @@ export function PostForm({ onSuccess }: Props) {
       <Button
         onPress={handlePost}
         disabled={!canPost}
-        icon={posting ? <Spinner /> : undefined}
-        backgroundColor="$blue9"
+        icon={posting ? <Spinner color="white" /> : undefined}
+        backgroundColor="#BC002D"
         color="white"
         borderRadius="$4"
         fontWeight="700"
-        pressStyle={{ backgroundColor: '$blue10' }}
+        pressStyle={{ opacity: 0.8 }}
         opacity={canPost ? 1 : 0.5}
       >
         {posting ? '' : '投稿する'}

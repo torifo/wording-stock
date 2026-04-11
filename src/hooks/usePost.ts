@@ -6,6 +6,7 @@ import type { Category } from '../types';
 interface PostInput {
   content: string;
   meaning: string;
+  sourceName: string;
   category: Category;
   userId: string;
 }
@@ -28,7 +29,7 @@ export function usePost(): UsePostResult {
     setWarning('');
   }
 
-  async function post({ content, meaning, category, userId }: PostInput): Promise<boolean> {
+  async function post({ content, meaning, sourceName, category, userId }: PostInput): Promise<boolean> {
     clearMessages();
 
     // ClientFilter で禁止用語チェック
@@ -50,6 +51,7 @@ export function usePost(): UsePostResult {
       user_id: userId,
       content,
       meaning: meaning.trim() || null,
+      source_name: sourceName.trim() || null,
       category,
       censor_status: 'safe',
     });

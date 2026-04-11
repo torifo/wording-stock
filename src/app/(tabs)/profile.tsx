@@ -9,7 +9,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useMyPosts } from '../../hooks/useMyPosts';
 import { useFavorites } from '../../hooks/useFavorites';
 import { ExpressionCard } from '../../components/ExpressionCard';
-import { VoteButtons } from '../../components/VoteButtons';
 import type { Profile, Category, Expression } from '../../types';
 
 type Tab = 'settings' | 'posts' | 'favorites';
@@ -25,7 +24,7 @@ function MyPostCard({
 }: {
   post: Expression;
   onDeleted: (id: string) => Promise<string | null>;
-  onUpdated: (id: string, fields: { content: string; meaning: string; category: Category }) => void;
+  onUpdated: (id: string, fields: { content: string; meaning: string; category: Category }) => Promise<string | null>;
 }) {
   const [editing, setEditing]   = useState(false);
   const [content, setContent]   = useState(post.content);
@@ -64,13 +63,9 @@ function MyPostCard({
     if (!content.trim()) return;
     setSaving(true);
     setErrMsg('');
-    const { error } = await supabase
-      .from('expressions')
-      .update({ content: content.trim(), meaning: meaning.trim() || null, category })
-      .eq('id', post.id);
+    const err = await onUpdated(post.id, { content: content.trim(), meaning, category });
     setSaving(false);
-    if (error) { setErrMsg(error.message); return; }
-    onUpdated(post.id, { content: content.trim(), meaning, category });
+    if (err) { setErrMsg(err); return; }
     setEditing(false);
   }
 
@@ -329,7 +324,7 @@ export default function ProfileScreen() {
                 <MyPostCard
                   post={item}
                   onDeleted={deletePost}
-                  onUpdated={(id, fields) => updatePost(id, fields)}
+                  onUpdated={updatePost}
                 />
               )}
               ListEmptyComponent={
