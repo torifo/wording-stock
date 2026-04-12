@@ -2,14 +2,20 @@
 
 日本語の豊かな表現（四字熟語・慣用句・ことわざ・詩的フレーズなど）を投稿・共有・発見できる SNS。
 
+**🌐 [wordock.riumu.net](https://wordock.riumu.net)**
+
 ---
 
 ## サービス概要
 
 - 表現を投稿してタイムラインで共有する
-- カテゴリ（四字熟語 / 慣用句 / ことわざ / 詩・俳句 / その他）で分類する
-- ユーザー同士が「適切 / 不適切」の投票でコンテンツをモデレーションする
-- Web ブラウザ（PWA）と Android アプリの両方で利用できる
+- カテゴリ（四字熟語 / 慣用句 / ことわざ / 名言・格言 / 詩・俳句 / その他）で分類・フィルタリングする
+- キーワード検索で表現を探せる
+- 今日の表現（カテゴリ別）をサイドバー・横スクロールで毎日更新表示
+- いいね（押す → 取り消す → 再押し）でお気に入りの表現を評価する
+- ブックマーク機能でお気に入りの表現を保存する
+- ユーザーアイコン・名前タップで他ユーザーのプロフィール・投稿一覧を閲覧できる
+- Web ブラウザ（PWA 対応）と Expo Go (Android/iOS) の両方で利用できる
 
 ---
 
@@ -22,9 +28,9 @@
 | バックエンド / DB | Supabase (PostgreSQL + RLS) |
 | 認証 | Supabase Auth |
 | ストレージ | Supabase Storage（アバター画像） |
-| サーバーレス関数 | Supabase Edge Functions（AI モデレーション） |
-| Web ホスティング | Vercel（静的 SPA） |
-| Android 配布 | EAS Build（APK 直接配布 / Play Store） |
+| サーバーレス関数 | Supabase Edge Functions（AI コンテンツモデレーション） |
+| Web ホスティング | Vercel（静的 SPA）+ 独自ドメイン `wordock.riumu.net` |
+| Android 配布 | EAS Build（APK 直接配布 / Play Store）※予定 |
 
 ---
 
@@ -35,30 +41,49 @@ wording-stock/
 ├── src/
 │   ├── app/                    # Expo Router 画面
 │   │   ├── _layout.tsx         # ルートレイアウト（TamaguiProvider）
-│   │   ├── (tabs)/             # ボトムタブ（タイムライン・プロフィール）
-│   │   ├── auth/               # 認証画面（ログイン・新規登録）
-│   │   └── post.tsx            # 投稿画面
-│   ├── components/             # 再利用可能コンポーネント
+│   │   ├── (tabs)/             # ボトムタブ
+│   │   │   ├── index.tsx       # タイムライン（PC レイアウト / モバイル分岐）
+│   │   │   └── profile.tsx     # プロフィール（設定・投稿履歴・お気に入り）
+│   │   ├── auth/               # 認証画面
+│   │   │   ├── login.tsx
+│   │   │   └── signup.tsx
+│   │   ├── user/
+│   │   │   └── [id].tsx        # 他ユーザーのプロフィール・投稿一覧
+│   │   └── post.tsx            # 投稿画面（モーダル）
+│   ├── components/
 │   │   ├── ExpressionCard.tsx  # 投稿カード
-│   │   ├── PostForm.tsx        # 投稿フォーム
-│   │   ├── VoteButtons.tsx     # 投票ボタン
+│   │   ├── PostForm.tsx        # 投稿フォーム（意味・出典・カテゴリ）
+│   │   ├── VoteButtons.tsx     # いいねボタン（debounce・toggle対応）
+│   │   ├── DailySection.tsx    # 今日の表現（横スクロール / 縦積み）
 │   │   └── GreyLayer.tsx       # グレーアウトオーバーレイ
+│   ├── hooks/
+│   │   ├── useTimeline.ts      # タイムライン取得・ページネーション
+│   │   ├── usePost.ts          # 投稿（クライアントフィルタ + Supabase INSERT）
+│   │   ├── useMyPosts.ts       # 自分の投稿一覧・編集・削除
+│   │   ├── useFavorites.ts     # お気に入り操作
+│   │   ├── useVote.ts          # いいね / unlike
+│   │   └── useDailyExpression.ts # 今日の表現（日付ベースハッシュ）
 │   ├── context/
 │   │   └── AuthContext.tsx     # 認証状態のグローバル管理
-│   └── lib/
-│       └── supabase.ts         # Supabase クライアント
+│   ├── lib/
+│   │   ├── supabase.ts         # Supabase クライアント
+│   │   └── clientFilter.ts     # クライアントサイド禁止ワードフィルタ
+│   └── types/
+│       ├── index.ts            # Expression / Profile / Vote 型
+│       └── database.ts         # Supabase 自動生成型（DB スキーマ）
 ├── supabase/
-│   ├── migrations/             # DB マイグレーション SQL
+│   ├── migrations/             # DB マイグレーション SQL（7本）
 │   └── functions/
-│       └── ai-checker/         # Edge Function（AI モデレーション）
+│       └── ai-checker/         # Edge Function（マルチプロバイダー AI モデレーション）
 ├── assets/                     # アイコン・スプラッシュ画像
-├── docs/                       # 詳細ドキュメント
+├── docs/
 │   ├── deployment.md           # デプロイ手順（Vercel / Supabase / APK / Play Store）
-│   └── troubleshooting.md      # トラブルシューティング記録
-├── app.json                    # Expo 設定・PWA マニフェスト
+│   ├── moderation-setup.md     # AI モデレーション API 取得・設定手順
+│   └── troubleshooting.md      # セットアップ時のトラブル記録
+├── app.json                    # Expo 設定・PWA マニフェスト（themeColor: #BC002D）
 ├── eas.json                    # EAS Build プロファイル
-├── vercel.json                 # Vercel デプロイ設定
-└── tamagui.config.ts           # テーマ設定（日の丸カラー）
+├── vercel.json                 # Vercel SPA リライト設定
+└── netlify.toml                # Netlify デプロイ設定（代替オプション）
 ```
 
 ---
@@ -87,6 +112,21 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 ---
 
+## デプロイ構成
+
+```
+git push origin main
+  ↓ Vercel auto-deploy
+npx expo export -p web --output-dir dist
+  ↓
+https://wordock.riumu.net
+```
+
+- **Vercel 環境変数**: `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- **Supabase Auth**: Site URL = `https://wordock.riumu.net`、Redirect URLs = `https://wordock.riumu.net/**`
+
+---
+
 ## ライセンス
 
-Private
+MIT

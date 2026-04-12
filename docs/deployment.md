@@ -29,15 +29,16 @@ Web（Vercel）・Android APK 配布・Play Store 公開までの全フロー。
 
 ---
 
-## Phase 1：GitHub リポジトリを公開する
+## Phase 1：GitHub リポジトリを用意する
 
-### 1-1. GitHub でリポジトリ作成
+### 1-1. フォークまたは新規作成
 
-1. [github.com](https://github.com) にログイン
-2. New repository → リポジトリ名: `wording-stock` → **Private** → Create
-3. `.kiro/` `.claude/` `CLAUDE.md` は `.gitignore` で除外済みなので push しても問題なし
+- **このリポジトリを使う場合**: Fork → ローカルに clone してそのまま使えます
+- **新規作成の場合**: New repository → 任意の名前で作成
 
-### 1-2. リモートを追加して push
+`.kiro/` `.claude/` `CLAUDE.md` `progress.md` は `.gitignore` で除外済み。
+
+### 1-2. リモートを設定して push
 
 ```bash
 git remote add origin https://github.com/<your-username>/wording-stock.git
@@ -149,23 +150,34 @@ git push origin main
 
 ### 3-4. 独自ドメインの設定
 
-1. Vercel Project → Settings → Domains → ドメインを入力（例: `wordingstock.jp`）
-2. Vercel が表示する DNS レコードをドメイン管理画面で設定：
+1. Vercel Project → Settings → Domains → ドメインを入力（例: `wordock.riumu.net`）
+2. Vercel がプロジェクト固有の CNAME 値を表示するのでそれを DNS 管理画面に登録する
 
 ```
 種別: CNAME
-名前: @（または www）
-値:   cname.vercel-dns.com
+名前: サブドメイン部分（例: wordock）
+値:   Vercel が表示した固有値（例: xxxxxxxxxxxxxxxx.vercel-dns-017.com）
+TTL:  60（理由は下記参照）
 ```
 
-または A レコードの場合：
-```
-種別: A
-名前: @
-値:   76.76.21.21
-```
+> **⚠️ 末尾ドット（.）を除くこと**  
+> Vercel の UI や DNS の FQDN 表記では値の末尾に `.` が付く場合があるが、日本のレジストラの管理画面では「内容の記述が正しくありません」エラーになる。末尾ドットを除いた値で登録すること。
 
-3. DNS 反映後（数分〜数時間）、HTTPS が自動で有効になる
+> **⚠️ TTL は 60 に設定してから登録する**  
+> TTL をデフォルト（3600 秒）のまま登録すると、DNS が全世界に伝播しても Vercel の検証がキャッシュされた古い結果を参照し続け「Invalid Configuration」のままになることがある。  
+> **TTL を 60 に設定してから CNAME を登録（または更新）することで、Vercel が次回検証時に最新の DNS を確実に取得できる。**  
+> ドメイン有効化確認後は TTL を 3600 に戻しておくのが推奨（DNS クエリ負荷軽減のため）。
+
+3. Vercel ダッシュボードでドメインを「削除 → 再追加」して検証を強制トリガーする
+4. DNS 反映後（通常 1〜数分）、Vercel 上で Valid Configuration に変わり HTTPS が自動で有効になる
+
+> **補足: A レコードを使う場合（サブドメイン以外）**
+> ```
+> 種別: A
+> 名前: @
+> 値:   76.76.21.21
+> ```
+> サブドメインには CNAME が推奨。apex ドメイン（例: `wordock.jp`）の場合は A レコードを使う。
 
 ### 3-5. PWA として「ホーム画面に追加」
 
