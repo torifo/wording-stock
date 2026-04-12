@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, Text, XStack, YStack, Avatar, Button } from 'tamagui';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { GreyLayer } from './GreyLayer';
 import { VoteButtons } from './VoteButtons';
 import type { Expression } from '../types';
@@ -20,18 +21,20 @@ function formatDate(iso: string): string {
 export function ExpressionCard({ expression, onBookmarkToggle, hideVoteCount = false, onLikeChange }: Props) {
   const [showMeaning, setShowMeaning] = useState(false);
   const [isFav, setIsFav] = useState(expression.isFavorited ?? false);
-  const [showProfile, setShowProfile] = useState(false);
 
   if (expression.censor_status === 'banned') return null;
 
   const { profile } = expression;
   const hasMeaning = !!expression.meaning;
-  const hasFavoriteExpr = !!profile?.favorite_expression;
 
   function handleBookmark() {
     const next = !isFav;
     setIsFav(next);
     onBookmarkToggle?.(expression.id, next);
+  }
+
+  function handleUserPress() {
+    router.push(`/user/${expression.user_id}`);
   }
 
   return (
@@ -45,11 +48,7 @@ export function ExpressionCard({ expression, onBookmarkToggle, hideVoteCount = f
     >
       {/* ヘッダー */}
       <XStack gap="$2" alignItems="center" marginBottom="$2">
-        <Button
-          chromeless
-          padding={0}
-          onPress={() => hasFavoriteExpr && setShowProfile((v) => !v)}
-        >
+        <Button chromeless padding={0} onPress={handleUserPress}>
           <Avatar circular size="$3">
             {profile?.avatar_url ? (
               <Avatar.Image src={profile.avatar_url} />
@@ -64,23 +63,12 @@ export function ExpressionCard({ expression, onBookmarkToggle, hideVoteCount = f
         </Button>
 
         <YStack flex={1}>
-          <Button
-            chromeless
-            padding={0}
-            alignSelf="flex-start"
-            onPress={() => hasFavoriteExpr && setShowProfile((v) => !v)}
-          >
+          <Button chromeless padding={0} alignSelf="flex-start" onPress={handleUserPress}>
             <XStack alignItems="center" gap="$1">
               <Text fontWeight="bold" fontSize="$3" color="#222">
                 {profile?.username ?? '匿名'}
               </Text>
-              {hasFavoriteExpr && (
-                <Ionicons
-                  name={showProfile ? 'chevron-up-outline' : 'chevron-down-outline'}
-                  size={12}
-                  color="#BC002D"
-                />
-              )}
+              <Ionicons name="chevron-forward-outline" size={12} color="#BC002D" />
             </XStack>
           </Button>
           <XStack gap="$2">
@@ -99,24 +87,6 @@ export function ExpressionCard({ expression, onBookmarkToggle, hideVoteCount = f
           </Button>
         )}
       </XStack>
-
-      {/* 推し表現パネル */}
-      {showProfile && profile?.favorite_expression && (
-        <XStack
-          backgroundColor="#FFF5F7"
-          borderRadius="$2"
-          padding="$2"
-          marginBottom="$2"
-          gap="$1"
-          alignItems="flex-start"
-        >
-          <Ionicons name="heart-outline" size={12} color="#BC002D" style={{ marginTop: 2 }} />
-          <YStack flex={1}>
-            <Text fontSize="$1" color="#BC002D" fontWeight="700">推しの表現</Text>
-            <Text fontSize="$2" color="#444">{profile.favorite_expression}</Text>
-          </YStack>
-        </XStack>
-      )}
 
       {/* 言葉・表現 */}
       {expression.censor_status === 'grey' ? (
