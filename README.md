@@ -106,6 +106,7 @@ npm start -- --clear
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+EXPO_PUBLIC_WEB_URL=http://localhost:8081
 ```
 
 詳細は `docs/deployment.md` を参照。
@@ -124,6 +125,42 @@ https://wordock.riumu.net
 
 - **Vercel 環境変数**: `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 - **Supabase Auth**: Site URL = `https://wordock.riumu.net`、Redirect URLs = `https://wordock.riumu.net/**`
+
+## Google ログイン設定
+
+`src/app/auth/login.tsx` と `src/app/auth/signup.tsx` から `Supabase Auth` の Google OAuth を開始し、`/auth/callback` で `code` をセッション交換します。
+
+### 1. Supabase Dashboard
+
+- `Authentication` → `Providers` → `Google` を有効化
+- Google Cloud で発行した `Client ID` と `Client Secret` を設定
+- `Authentication` → `Sign In / Providers` で `Manual linking` を有効化
+- `Authentication` → `URL Configuration` を次のように設定
+
+Site URL:
+`https://wordock.riumu.net`
+
+Redirect URLs:
+- `https://wordock.riumu.net/auth/callback`
+- `http://localhost:8081/auth/callback`
+- `wordingstock://auth/callback`
+
+### 2. Google Cloud Console
+
+OAuth クライアントの種類は `Web application` を使います。
+
+承認済みの JavaScript 生成元:
+- `https://wordock.riumu.net`
+- `http://localhost:8081`
+
+承認済みのリダイレクト URI:
+- `https://<your-project-ref>.supabase.co/auth/v1/callback`
+
+補足:
+- Supabase Hosted を使う場合、Google Cloud Console 側の redirect URI は通常 1 つで、アプリの本番 URL や `localhost` はここには入れません。
+- 本番 URL / 開発 URL の切り分けは、Google Cloud Console の `JavaScript 生成元` と、Supabase 側の `Redirect URLs` に入れて管理します。
+- ローカル Supabase を使う場合だけ、追加で `http://127.0.0.1:54321/auth/v1/callback` を Google Cloud Console に登録します。
+- メール登録済みユーザーがプロフィール画面から Google を連携する機能は、Supabase の `Manual linking` が無効だと動きません。
 
 ---
 

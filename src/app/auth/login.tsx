@@ -11,7 +11,7 @@ import {
   Separator,
 } from 'tamagui';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase';
+import { getOAuthRedirectUrl, supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
@@ -35,6 +35,24 @@ export default function LoginScreen() {
       setError('メールアドレスまたはパスワードが正しくありません');
     } else {
       router.replace('/(tabs)');
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setLoading(true);
+    setError('');
+
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: getOAuthRedirectUrl({ mode: 'login' }),
+        skipBrowserRedirect: false,
+      },
+    });
+
+    if (signInError) {
+      setLoading(false);
+      setError('Google ログインを開始できませんでした');
     }
   }
 
@@ -153,11 +171,14 @@ export default function LoginScreen() {
               borderRadius="$4"
               variant="outlined"
               borderColor="#FFD0DC"
-              color="#aaa"
-              disabled
-              opacity={0.4}
+              color="#BC002D"
+              backgroundColor="white"
+              pressStyle={{ opacity: 0.8 }}
+              onPress={handleGoogleLogin}
+              disabled={loading}
+              opacity={loading ? 0.5 : 1}
             >
-              Google でログイン（準備中）
+              Google でログイン
             </Button>
           </YStack>
 

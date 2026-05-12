@@ -11,7 +11,7 @@ import {
   Separator,
 } from 'tamagui';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase';
+import { getOAuthRedirectUrl, supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
 export default function SignupScreen() {
@@ -45,6 +45,24 @@ export default function SignupScreen() {
       setError(signUpError.message);
     } else {
       router.replace('/auth/login');
+    }
+  }
+
+  async function handleGoogleSignup() {
+    setLoading(true);
+    setError('');
+
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: getOAuthRedirectUrl({ mode: 'login' }),
+        skipBrowserRedirect: false,
+      },
+    });
+
+    if (signInError) {
+      setLoading(false);
+      setError('Google 登録を開始できませんでした');
     }
   }
 
@@ -198,11 +216,14 @@ export default function SignupScreen() {
               borderRadius="$4"
               variant="outlined"
               borderColor="#FFD0DC"
-              color="#aaa"
-              disabled
-              opacity={0.4}
+              color="#BC002D"
+              backgroundColor="white"
+              pressStyle={{ opacity: 0.8 }}
+              onPress={handleGoogleSignup}
+              disabled={loading}
+              opacity={loading ? 0.5 : 1}
             >
-              Google で登録（準備中）
+              Google で登録
             </Button>
           </YStack>
 

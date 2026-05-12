@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Alert, FlatList, ActivityIndicator, Platform, useWindowDimensions, View } from 'react-native';
-import { Redirect } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { Button, Input, Text, YStack, XStack, Avatar, Spinner, TextArea, Select, Card } from 'tamagui';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '../../lib/supabase';
+import { getOAuthRedirectUrl, supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useMyPosts } from '../../hooks/useMyPosts';
 import { useFavorites } from '../../hooks/useFavorites';
@@ -14,6 +14,13 @@ import type { Profile, Category, Expression } from '../../types';
 type Tab = 'settings' | 'posts' | 'favorites';
 
 const CATEGORIES: Category[] = ['四字熟語', '慣用句', 'ことわざ', '名言・格言', '詩・俳句', 'その他'];
+
+type IdentityProvider = 'email' | 'google';
+
+type IdentityState = {
+  email: boolean;
+  google: boolean;
+};
 
 // ── 投稿履歴カード（編集・削除付き） ──────────────────────────────────────
 
@@ -161,6 +168,7 @@ function MyPostCard({
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const params = useLocalSearchParams<{ linked?: string }>();
   const { width } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && width >= 768;
   const [activeTab, setActiveTab] = useState<Tab>('settings');
@@ -172,6 +180,8 @@ export default function ProfileScreen() {
   const [loading, setLoading]                   = useState(false);
   const [saving, setSaving]                     = useState(false);
   const [settingsError, setSettingsError]       = useState('');
+  const [linkingGoogle, setLinkingGoogle]       = useState(false);
+  const [identities, setIdentities]             = useState<IdentityState>({ email: false, google: false });
 
   // 投稿履歴
   const { posts, loading: postsLoading, error: postsError, fetch: fetchPosts, deletePost, updatePost } = useMyPosts(user?.id);
@@ -182,12 +192,21 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!user) return;
     loadProfile();
+    loadIdentities();
   }, [user]);
 
   useEffect(() => {
     if (activeTab === 'posts' && posts.length === 0) fetchPosts();
     if (activeTab === 'favorites' && favorites.length === 0) fetchFavs();
   }, [activeTab]);
+
+  useEffect(() => {
+    if (params.linked === 'google') {
+      Alert.alert('Google アカウントを連携しました');
+      loadIdentities();
+      router.replace('/profile');
+    }
+  }, [params.linked]);
 
   async function loadProfile() {
     if (!user) return;
@@ -200,6 +219,37 @@ export default function ProfileScreen() {
       setUsername(data.username ?? '');
       setFavoriteExpression(data.favorite_expression ?? '');
     }
+  }
+
+  async function loadIdentities() {
+    const authApi = supabase.auth as unknown as {
+      getUserIdentities?: () => Promise<{
+        data?: { identities?: Array<{ provider?: string | null }> };
+        error?: { message: string } | null;
+      }>;
+    };
+
+    if (!authApi.getUserIdentities) {
+      return;
+    }
+
+    const { data, error: identitiesError } = await authApi.getUserIdentities();
+
+    if (identitiesError) {
+      setSettingsError(identitiesError.message);
+      return;
+    }
+
+    const providers = new Set(
+      (data?.identities ?? [])
+        .map((identity) => identity.provider)
+        .filter((provider): provider is IdentityProvider => provider === 'email' || provider === 'google'),
+    );
+
+    setIdentities({
+      email: providers.has('email'),
+      google: providers.has('google'),
+    });
   }
 
   async function handleSave() {
@@ -232,6 +282,36 @@ export default function ProfileScreen() {
     const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
     await supabase.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', user.id);
     loadProfile();
+  }
+
+  async function handleGoogleLink() {
+    const authApi = supabase.auth as unknown as {
+      linkIdentity?: (credentials: {
+        provider: 'google';
+        options?: { redirectTo?: string; skipBrowserRedirect?: boolean };
+      }) => Promise<{ error?: { message: string } | null }>;
+    };
+
+    if (!authApi.linkIdentity) {
+      setSettingsError('現在の Supabase SDK では Google 連携に対応していません');
+      return;
+    }
+
+    setLinkingGoogle(true);
+    setSettingsError('');
+
+    const { error: linkError } = await authApi.linkIdentity({
+      provider: 'google',
+      options: {
+        redirectTo: getOAuthRedirectUrl({ mode: 'link' }),
+        skipBrowserRedirect: false,
+      },
+    });
+
+    if (linkError) {
+      setLinkingGoogle(false);
+      setSettingsError(linkError.message);
+    }
   }
 
   if (!user) return <Redirect href="/auth/login" />;
@@ -294,6 +374,37 @@ export default function ProfileScreen() {
                 <YStack gap="$1">
                   <Text fontSize="$3" color="$gray10">推しの表現（30文字以内）</Text>
                   <Input value={favoriteExpression} onChangeText={setFavoriteExpression} placeholder="例: 温故知新、袖振り合うも多生の縁、など" maxLength={30} />
+                </YStack>
+
+                <YStack gap="$2" padding="$3" borderWidth={1} borderColor="#FFD0DC" borderRadius="$4" backgroundColor="#FFF9FA">
+                  <Text fontSize="$4" fontWeight="700" color="#111">ログイン方法</Text>
+                  <Text fontSize="$3" color="#666">
+                    {user.email ?? 'メールアドレス未設定'}
+                  </Text>
+                  <XStack alignItems="center" gap="$2" flexWrap="wrap">
+                    <Text fontSize="$2" color={identities.email ? '#BC002D' : '#888'}>
+                      {identities.email ? 'メールログイン連携済み' : 'メールログイン未連携'}
+                    </Text>
+                    <Text fontSize="$2" color={identities.google ? '#BC002D' : '#888'}>
+                      {identities.google ? 'Google ログイン連携済み' : 'Google ログイン未連携'}
+                    </Text>
+                  </XStack>
+                  {identities.google ? (
+                    <Text fontSize="$2" color="#666">
+                      今後はメール/パスワードでも Google でも同じアカウントにログインできます。
+                    </Text>
+                  ) : (
+                    <Button
+                      variant="outlined"
+                      borderColor="#BC002D"
+                      color="#BC002D"
+                      onPress={handleGoogleLink}
+                      disabled={linkingGoogle}
+                      icon={linkingGoogle ? <Spinner color="#BC002D" /> : undefined}
+                    >
+                      Google アカウントと連携する
+                    </Button>
+                  )}
                 </YStack>
 
                 {settingsError !== '' && <Text color="$red10" fontSize="$3">{settingsError}</Text>}
